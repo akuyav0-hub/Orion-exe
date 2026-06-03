@@ -1,0 +1,22 @@
+name = "moon-core"
+main = "src/worker.js"
+compatibility_date = "2024-12-01"
+
+# D1 database binding
+# After you run `wrangler d1 create moon-core`, paste the
+# database_id below from the command's output.
+[[d1_databases]]
+binding = "DB"
+database_name = "moon-core"
+database_id = "84a3baf4-305a-4e02-a686-805546b55622"
+
+# Cron trigger: Sunday 9:00 AM UTC.
+# (Adjust if you want it tied to a specific timezone.
+#  Cron runs in UTC; you can shift later via the dashboard.)
+[triggers]
+crons = ["0 9 * * SUN"]
+
+# Optional: tighten CORS to your frontend's origin in production
+# by setting an env var here and reading it in the worker.
+# [vars]
+# ALLOWED_ORIGIN = "https://your-frontend.example.com"

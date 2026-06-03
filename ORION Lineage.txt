@@ -1,0 +1,26 @@
+# Orion Lineage
+
+## v0.1 — AXIS prototype (May 22, 2026)
+Single HTML file. Mood engine, ambient chatter, PET-style interface.
+No real brain. The first form.
+
+## v0.2 — ORION (May 23, 2026)
+Rebranded to ORION. Blue/white. First time wired to the Claude API.
+
+## v0.3 — Voice rewrite
+Cool/calm/collected tone. Streaming responses. Event-driven ambient
+chatter (no more random timer babble).
+
+## v0.4 — The Zero silhouette
+Anime-style Navi visual. Five forms with henshin transformation.
+Each form has its own behavior, not just a costume.
+
+## v0.5 — The Moon Core (deprecated, broken auth)
+First persistent cloud memory. Cloudflare Workers + D1. Initiation
+Protocol. Sunday reflection. Had a fatal auth bug that locked
+operators out on Return. Wiped and rebuilt as v0.5.1.
+
+## v0.5.1 — Recovery Patch (May 23, 2026)
+Clean rebuild of auth: deterministic verify tokens, master-key
+wrapping, one-time recovery seed (16-word Orion Lexicon).
+Phrase rotation flow. Production-stable foundation.

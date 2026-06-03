@@ -1,0 +1,77 @@
+Crystallizing holographic interface aesthetic with cyan-gold palette
+
+Crystallizing holographic interface aesthetic with cyan-gold palette
+
+Pivot locked. Your epiphany IS the game — and I'm rebuilding from the ground up.
+
+The core insight: Hide chess under an RPG combat skin. The piece movements stay (so the AI is solved and the geometry is balanced), but everything else — visuals, turn structure, resource economy, ability system — gets replaced. New players won't know they're playing chess. Veterans who notice will think "oh clever" and play anyway.
+
+v0.4 Genesis I — one mechanic done right. Per your "fine-tune one at a time" rule, this slice nails the foundation texture. Everything else (Polymerization, chain detonation, multi-rune decks, more bosses) gets focused iterations after.
+
+What's in Genesis I:
+
+
+
+
+
+Holographic unit reskin — each piece becomes a Herald with a frame, name plate, HP bar, AP pips. Glyphs change too (no more recognizable chess symbols).
+
+
+
+AP economy — 6 AP/turn. Move = 1 AP/square. Cast = 3 AP. Multiple actions per turn. This is THE texture shift away from chess.
+
+
+
+HP per unit — every Herald has health. Captures damage instead of one-shot. Combat lasts 3-5 exchanges per unit. AoE matters. Status DoTs matter.
+
+
+
+Telegraphed intents — at start of YOUR turn, all enemy actions show ghost markers (where they'll move, who they'll hit, damage numbers). No blind calculation.
+
+
+
+First rune: Firefall — 3 AP, 3×3 AoE, applies Burning (2 dmg/turn for 3 turns). The opening taste of "build then detonate."
+
+
+
+The Cartographer reimagined — fights you on a 5×5. His signature: he draws his Compass over 3 turns. You see the windup tiles fill in. When it completes, gravity rips your formation. You can disrupt by attacking the windup tiles. One mechanic, telegraphed, dodgeable, fair.
+
+Deferred to v0.4.1 → v0.4.4+:
+
+
+
+
+
+Polymerization (fuse 2-3 units, stack kits — your Yu-Gi-Oh nod)
+
+
+
+Death detonation (Burning units explode on death, chains through enemies)
+
+
+
+Multiple runes + deck-building UI
+
+
+
+More bosses, more phases, more cycles
+
+Building now from a clean file — the combat layer is too different from v0.3a to bolt on.
+
+Architected holographic battle system with AP economy and visual design framework
+
+Architected holographic battle system with AP economy and visual design framework
+
+Building the Genesis I file now. I'll construct it in sections — HTML+CSS scaffold first, then constants, then combat core, then render layer.
+
+Finalizing script closure and validating JavaScript parsing
+
+Finalizing script closure and validating JavaScript parsing
+
+Looks like the session resynced — I had already started building v0.4 and got the file to 2547 lines. Let me verify state and finish the build.
+
+Conducting smoke tests to verify code integrity
+
+Conducting smoke tests to verify code integrity
+
+Good — file is intact at 2547 lines, last function is renderLog. Now appending the init/boot block and closing tags.

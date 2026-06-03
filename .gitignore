@@ -1,0 +1,51 @@
+# ============================================================
+# Orion project .gitignore
+# Keeps secrets, build artifacts, nested repos, and OS noise
+# out of version control.
+# ============================================================
+
+# ----- Secrets — NEVER commit -----
+# Master keys, recovery phrases, API tokens. Absolute exclusion.
+Api and recovery keys/
+api-keys/
+secrets/
+recovery/
+*.key
+*.pem
+*.crt
+*.p12
+.env
+.env.*
+.dev.vars
+.dev.vars.*
+
+# ----- Nested repos (have their own version control) -----
+orion-continuity/
+
+# ----- Node / NPM -----
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ----- Wrangler (Cloudflare Workers CLI) -----
+.wrangler/
+wrangler.toml.bak
+
+# ----- OS / editor noise -----
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.swp
+*~
+
+# ----- Notepad save-as accidents -----
+New Text Document.txt
+New Text Document.txt.txt
+
+# ----- Local / temp -----
+*.tmp
+*.bak
+*.old

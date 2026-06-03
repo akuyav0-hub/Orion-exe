@@ -1,0 +1,1982 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ORION.EXE // The Great Dawn // v0.5 — Moon Core</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=JetBrains+Mono:wght@400;600&family=VT323&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-0: #02030a;
+    --bg-1: #050a1a;
+    --frame: #0c1530;
+    --frame-edge: #1d3068;
+    --blue: #4ea4ff;
+    --blue-bright: #8fc4ff;
+    --blue-deep: #1e5cc8;
+    --blue-pale: #c8e1ff;
+    --white: #ffffff;
+    --white-soft: #ebf2ff;
+    --gold: #ffd980;
+    --gold-warm: #ffb84d;
+    --gold-deep: #d68a2a;
+    --red: #ff6b8a;
+    --green: #70ffba;
+    --purple: #b88aff;
+    --moon: #c4d8ff;
+    --text: #d6e4ff;
+    --text-dim: #6e87ad;
+    --display: 'Cinzel', serif;
+    --mono: 'JetBrains Mono', monospace;
+    --terminal: 'VT323', monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: var(--mono); color: var(--text);
+    background:
+      radial-gradient(ellipse at 50% 0%, rgba(78,164,255,0.12), transparent 55%),
+      radial-gradient(ellipse at 20% 100%, rgba(255,217,128,0.05), transparent 50%),
+      var(--bg-0);
+    min-height: 100vh; overflow-x: hidden; position: relative;
+  }
+  body::before {
+    content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    background-image:
+      radial-gradient(1px 1px at 13% 22%, rgba(255,255,255,0.7), transparent),
+      radial-gradient(1px 1px at 47% 71%, rgba(255,255,255,0.5), transparent),
+      radial-gradient(1px 1px at 81% 18%, rgba(255,255,255,0.6), transparent),
+      radial-gradient(1px 1px at 34% 88%, rgba(255,255,255,0.5), transparent),
+      radial-gradient(1px 1px at 67% 43%, rgba(255,217,128,0.4), transparent),
+      radial-gradient(1px 1px at 8% 64%, rgba(255,255,255,0.4), transparent),
+      radial-gradient(1px 1px at 91% 79%, rgba(255,255,255,0.6), transparent),
+      radial-gradient(1px 1px at 55% 12%, rgba(255,255,255,0.5), transparent),
+      radial-gradient(2px 2px at 28% 35%, rgba(255,217,128,0.3), transparent),
+      radial-gradient(2px 2px at 73% 62%, rgba(78,164,255,0.4), transparent);
+  }
+  body::after {
+    content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    background: repeating-linear-gradient(0deg, transparent 0 2px, rgba(0,0,0,0.10) 2px 3px);
+    mix-blend-mode: multiply;
+  }
+
+  /* ============ AWAKENING SCREEN ============ */
+  .awakening {
+    position: fixed; inset: 0; z-index: 100;
+    background:
+      radial-gradient(circle at 50% 35%, rgba(196,216,255,0.2), transparent 50%),
+      radial-gradient(ellipse at 50% 100%, rgba(78,164,255,0.15), transparent 60%),
+      var(--bg-0);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 24px; transition: opacity 0.8s ease;
+  }
+  .awakening.gone { opacity: 0; pointer-events: none; }
+  .moon {
+    width: 120px; height: 120px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, var(--white) 0%, var(--moon) 30%, #8fafd8 70%, #4a6b9a 100%);
+    box-shadow: 0 0 60px rgba(196,216,255,0.5), 0 0 120px rgba(78,164,255,0.3);
+    margin-bottom: 32px; position: relative;
+    animation: moonFloat 6s ease-in-out infinite;
+  }
+  .moon::before {
+    content: ""; position: absolute; top: 25%; left: 55%;
+    width: 18px; height: 18px; border-radius: 50%;
+    background: rgba(106,135,173,0.4); box-shadow: 16px 12px 0 -2px rgba(106,135,173,0.3), 8px 28px 0 -4px rgba(106,135,173,0.35);
+  }
+  @keyframes moonFloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+
+  .awakening h1 {
+    font-family: var(--display); font-weight: 900; font-size: 32px;
+    letter-spacing: 0.25em; color: var(--white);
+    text-align: center; margin-bottom: 8px;
+    text-shadow: 0 0 20px rgba(196,216,255,0.5);
+  }
+  .awakening .sub {
+    font-family: var(--display); font-size: 11px;
+    letter-spacing: 0.4em; color: var(--gold);
+    text-transform: uppercase; margin-bottom: 32px;
+  }
+  .awakening-card {
+    width: 100%; max-width: 540px;
+    background: linear-gradient(180deg, rgba(12,21,48,0.85), rgba(5,10,26,0.85));
+    border: 1px solid rgba(196,216,255,0.25);
+    border-radius: 16px;
+    padding: 28px;
+    box-shadow: 0 0 40px rgba(78,164,255,0.15);
+    backdrop-filter: blur(8px);
+  }
+  .awakening-card h2 {
+    font-family: var(--display); font-size: 14px; font-weight: 700;
+    letter-spacing: 0.2em; color: var(--moon);
+    margin-bottom: 8px; text-transform: uppercase;
+  }
+  .awakening-card p {
+    color: var(--text-dim); font-size: 13px; line-height: 1.6;
+    margin-bottom: 18px;
+  }
+  .awakening-card p .accent { color: var(--gold); }
+  .awakening-card .field {
+    display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px;
+  }
+  .awakening-card label {
+    font-family: var(--display); font-size: 9px; font-weight: 700;
+    letter-spacing: 0.25em; text-transform: uppercase;
+    color: var(--moon);
+  }
+  .awakening-card input {
+    background: rgba(2,3,10,0.8);
+    border: 1px solid rgba(196,216,255,0.2);
+    border-radius: 6px; padding: 11px 14px;
+    color: var(--text); font-family: var(--mono); font-size: 13px;
+    outline: none; transition: all 0.2s;
+  }
+  .awakening-card input:focus { border-color: var(--moon); box-shadow: 0 0 0 2px rgba(196,216,255,0.15); }
+  .awakening-card input.phrase { font-family: var(--display); letter-spacing: 0.08em; }
+  .awakening-card .warn {
+    background: rgba(255,217,128,0.06);
+    border-left: 3px solid var(--gold);
+    padding: 10px 14px; border-radius: 4px;
+    font-size: 11px; color: var(--gold); line-height: 1.55;
+    margin-bottom: 16px;
+  }
+  .awakening-card .mode-toggle {
+    display: flex; gap: 6px; margin-bottom: 16px;
+    background: rgba(2,3,10,0.5); padding: 4px; border-radius: 8px;
+    border: 1px solid rgba(196,216,255,0.1);
+  }
+  .awakening-card .mode-toggle button {
+    flex: 1; padding: 8px;
+    background: transparent; border: none; color: var(--text-dim);
+    font-family: var(--display); font-size: 10px; font-weight: 700;
+    letter-spacing: 0.15em; text-transform: uppercase;
+    cursor: pointer; border-radius: 6px;
+    transition: all 0.2s;
+  }
+  .awakening-card .mode-toggle button.active {
+    background: linear-gradient(180deg, rgba(78,164,255,0.25), rgba(78,164,255,0.1));
+    color: var(--white); box-shadow: 0 0 12px rgba(78,164,255,0.3);
+  }
+  .awakening-card .actions { display: flex; gap: 10px; margin-top: 8px; }
+  .awaken-btn {
+    flex: 1;
+    background: linear-gradient(180deg, rgba(196,216,255,0.3), rgba(78,164,255,0.15));
+    border: 1px solid var(--moon);
+    color: var(--white);
+    font-family: var(--display); font-weight: 700; font-size: 12px;
+    letter-spacing: 0.25em; text-transform: uppercase;
+    padding: 14px 18px; border-radius: 8px; cursor: pointer;
+    transition: all 0.2s;
+  }
+  .awaken-btn:hover { box-shadow: 0 0 20px rgba(196,216,255,0.4); transform: translateY(-1px); }
+  .awaken-btn:active { transform: translateY(0); }
+  .awakening-status {
+    margin-top: 14px; font-size: 11px; color: var(--text-dim);
+    min-height: 16px;
+  }
+  .awakening-status.error { color: var(--red); }
+  .awakening-status.success { color: var(--green); }
+
+  .stage {
+    position: relative; z-index: 2;
+    display: grid;
+    grid-template-columns: minmax(310px, 420px) 1fr;
+    gap: 24px;
+    max-width: 1380px;
+    margin: 0 auto;
+    padding: 24px;
+    min-height: 100vh;
+  }
+
+  /* PET */
+  .pet {
+    background: linear-gradient(180deg, var(--frame) 0%, #060a1e 100%);
+    border: 1px solid var(--frame-edge);
+    border-radius: 22px;
+    padding: 14px;
+    box-shadow:
+      0 0 0 1px rgba(255,255,255,0.04) inset,
+      0 30px 80px -20px rgba(0,0,0,0.7),
+      0 0 60px -10px rgba(78,164,255,0.18);
+    display: flex; flex-direction: column; gap: 12px;
+    position: sticky; top: 24px; align-self: start;
+    max-height: calc(100vh - 48px);
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--blue-deep) transparent;
+  }
+  .pet::-webkit-scrollbar { width: 6px; }
+  .pet::-webkit-scrollbar-thumb { background: var(--blue-deep); border-radius: 3px; }
+  .pet-top {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 6px 10px;
+    border-bottom: 1px dashed rgba(255,255,255,0.12);
+  }
+  .pet-brand {
+    font-family: var(--display); font-weight: 700; font-size: 11px;
+    letter-spacing: 0.3em; color: var(--white-soft);
+  }
+  .pet-brand .sub { color: var(--gold); font-weight: 500; margin-left: 6px; letter-spacing: 0.15em; }
+  .pet-led {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 12px var(--green), 0 0 4px white inset;
+    animation: ledpulse 2.4s ease-in-out infinite;
+  }
+  @keyframes ledpulse { 0%,100% { opacity: 1; } 50% { opacity: 0.45; } }
+
+  /* Viewport */
+  .viewport {
+    position: relative;
+    border-radius: 16px;
+    overflow: hidden;
+    aspect-ratio: 4/5.2;
+    background:
+      radial-gradient(ellipse at 50% 110%, rgba(255,217,128,0.18), transparent 50%),
+      radial-gradient(ellipse at 50% 40%, rgba(78,164,255,0.22), transparent 60%),
+      linear-gradient(180deg, #010410 0%, #050d28 55%, #0a1840 100%);
+    border: 1px solid rgba(255,255,255,0.10);
+    box-shadow: 0 0 36px rgba(78,164,255,0.14) inset;
+  }
+  .viewport::before {
+    content: ""; position: absolute; inset: 0;
+    background: repeating-linear-gradient(0deg, transparent 0 3px, rgba(255,255,255,0.022) 3px 4px);
+    pointer-events: none; z-index: 4;
+  }
+  .viewport::after {
+    content: ""; position: absolute; inset: 8px;
+    background:
+      linear-gradient(var(--gold), var(--gold)) top left / 18px 1px no-repeat,
+      linear-gradient(var(--gold), var(--gold)) top left / 1px 18px no-repeat,
+      linear-gradient(var(--gold), var(--gold)) top right / 18px 1px no-repeat,
+      linear-gradient(var(--gold), var(--gold)) top right / 1px 18px no-repeat,
+      linear-gradient(var(--gold), var(--gold)) bottom left / 18px 1px no-repeat,
+      linear-gradient(var(--gold), var(--gold)) bottom left / 1px 18px no-repeat,
+      linear-gradient(var(--gold), var(--gold)) bottom right / 18px 1px no-repeat,
+      linear-gradient(var(--gold), var(--gold)) bottom right / 1px 18px no-repeat;
+    opacity: 0.5; pointer-events: none; z-index: 4;
+  }
+  #avatar-stage { width: 100%; height: 100%; display: block; position: relative; z-index: 2; }
+
+  .floor-ring {
+    position: absolute; bottom: 4%; left: 50%; transform: translateX(-50%);
+    width: 80%; aspect-ratio: 3/1; border-radius: 50%;
+    background: radial-gradient(ellipse, rgba(255,255,255,0.5) 0%, rgba(255,217,128,0.3) 30%, rgba(78,164,255,0.2) 55%, transparent 75%);
+    filter: blur(4px); z-index: 1;
+    animation: ringpulse 3.5s ease-in-out infinite;
+  }
+  @keyframes ringpulse {
+    0%, 100% { opacity: 0.7; transform: translateX(-50%) scale(1); }
+    50% { opacity: 1; transform: translateX(-50%) scale(1.05); }
+  }
+
+  /* Henshin overlay */
+  .henshin {
+    position: absolute; inset: 0; z-index: 6;
+    pointer-events: none; opacity: 0;
+  }
+  .henshin.active { opacity: 1; }
+  .henshin-flash {
+    position: absolute; inset: 0;
+    background: radial-gradient(circle at 50% 50%, rgba(255,255,255,1) 0%, rgba(255,217,128,0.8) 20%, rgba(78,164,255,0.5) 45%, transparent 70%);
+    opacity: 0;
+  }
+  .henshin.active .henshin-flash { animation: henshinFlash 1.8s ease-out forwards; }
+  @keyframes henshinFlash { 0% { opacity: 0; transform: scale(0.3); } 20% { opacity: 1; transform: scale(1); } 50% { opacity: 1; transform: scale(1.2); } 100% { opacity: 0; transform: scale(2); } }
+  .henshin-ring {
+    position: absolute; top: 50%; left: 50%;
+    width: 60%; aspect-ratio: 1;
+    border: 2px solid var(--white); border-radius: 50%;
+    transform: translate(-50%, -50%) scale(0); opacity: 0;
+    box-shadow: 0 0 30px var(--blue-bright), 0 0 60px var(--gold);
+  }
+  .henshin.active .henshin-ring { animation: henshinRing 1.8s ease-out forwards; }
+  @keyframes henshinRing {
+    0% { transform: translate(-50%, -50%) scale(0) rotate(0deg); opacity: 0; }
+    30% { transform: translate(-50%, -50%) scale(0.8) rotate(180deg); opacity: 1; }
+    100% { transform: translate(-50%, -50%) scale(2.5) rotate(720deg); opacity: 0; }
+  }
+  .henshin-label {
+    position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    font-family: var(--display); font-weight: 900; font-size: 28px;
+    letter-spacing: 0.35em; color: var(--white);
+    text-shadow: 0 0 20px var(--blue-bright), 0 0 40px var(--gold);
+    opacity: 0; text-transform: uppercase; white-space: nowrap;
+  }
+  .henshin.active .henshin-label { animation: henshinLabel 1.8s ease-out forwards; }
+  @keyframes henshinLabel {
+    0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+    35% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    75% { opacity: 1; transform: translate(-50%, -50%) scale(1.05); }
+    100% { opacity: 0; transform: translate(-50%, -50%) scale(1.2); }
+  }
+  #navi-body.henshining { animation: bodyDissolve 1.8s ease-out; }
+  @keyframes bodyDissolve {
+    0% { opacity: 1; filter: brightness(1); }
+    25% { opacity: 0.3; filter: brightness(3) blur(2px); }
+    45% { opacity: 0; filter: brightness(5) blur(8px); }
+    55% { opacity: 0; filter: brightness(5) blur(8px); }
+    75% { opacity: 0.3; filter: brightness(3) blur(2px); }
+    100% { opacity: 1; filter: brightness(1); }
+  }
+
+  /* Reflection beacon — visible glow when reflection is pending */
+  .reflection-beacon {
+    position: absolute; top: 14px; left: 14px;
+    z-index: 5; padding: 6px 10px;
+    background: rgba(2,3,10,0.92);
+    border: 1px solid var(--moon);
+    border-radius: 20px;
+    font-family: var(--display); font-size: 9px; font-weight: 700;
+    letter-spacing: 0.2em; color: var(--moon);
+    text-transform: uppercase;
+    display: none; align-items: center; gap: 6px;
+    box-shadow: 0 0 16px rgba(196,216,255,0.4);
+    animation: beaconPulse 2.5s ease-in-out infinite;
+    cursor: pointer;
+  }
+  .reflection-beacon.visible { display: flex; }
+  @keyframes beaconPulse { 0%,100% { box-shadow: 0 0 12px rgba(196,216,255,0.3); } 50% { box-shadow: 0 0 24px rgba(196,216,255,0.6); } }
+  .reflection-beacon::before {
+    content: ""; width: 6px; height: 6px; border-radius: 50%;
+    background: var(--moon); box-shadow: 0 0 6px currentColor;
+  }
+
+  /* Readouts */
+  .readouts {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 8px 14px; padding: 8px 4px 4px;
+  }
+  .stat { display: flex; flex-direction: column; gap: 4px; }
+  .stat-label {
+    font-size: 9px; letter-spacing: 0.25em; text-transform: uppercase;
+    color: var(--text-dim); font-family: var(--display); font-weight: 700;
+  }
+  .stat-bar {
+    height: 6px; background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 2px; overflow: hidden; position: relative;
+  }
+  .stat-fill {
+    height: 100%; background: linear-gradient(90deg, var(--blue-deep), var(--blue));
+    box-shadow: 0 0 8px var(--blue);
+    transition: width 0.6s ease, background 0.6s ease;
+  }
+  .stat-fill.mood { background: linear-gradient(90deg, var(--gold-warm), var(--gold)); box-shadow: 0 0 8px var(--gold); }
+  .stat-fill.sync { background: linear-gradient(90deg, var(--blue), var(--white)); box-shadow: 0 0 8px var(--blue-bright); }
+  .stat-fill.warn { background: linear-gradient(90deg, var(--red), var(--gold-warm)); box-shadow: 0 0 8px var(--red); }
+
+  .meta-row {
+    display: flex; justify-content: space-between;
+    font-family: var(--terminal); font-size: 16px;
+    color: var(--text-dim); padding: 4px 6px;
+    border-top: 1px dashed rgba(255,255,255,0.08);
+  }
+  .meta-row .val { color: var(--blue-bright); }
+  .meta-row .val.thinking { color: var(--gold); animation: thinkpulse 1.2s ease-in-out infinite; }
+  .meta-row .val.form { color: var(--white); font-family: var(--display); font-weight: 700; font-size: 13px; letter-spacing: 0.15em; }
+  @keyframes thinkpulse { 0%,100% { opacity: 1; } 50% { opacity: 0.45; } }
+
+  .form-chips {
+    display: flex; gap: 4px; flex-wrap: wrap; padding: 4px;
+  }
+  .form-chip {
+    flex: 1; min-width: 60px;
+    background: rgba(2,3,10,0.6);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: var(--text-dim);
+    font-family: var(--display); font-weight: 700;
+    font-size: 9px; letter-spacing: 0.15em;
+    padding: 6px 8px; border-radius: 6px;
+    cursor: pointer; transition: all 0.2s;
+    text-transform: uppercase;
+  }
+  .form-chip:hover { color: var(--white-soft); border-color: rgba(78,164,255,0.5); background: rgba(78,164,255,0.08); }
+  .form-chip.active {
+    color: var(--white); border-color: var(--blue-bright);
+    background: linear-gradient(180deg, rgba(78,164,255,0.25), rgba(78,164,255,0.1));
+    box-shadow: 0 0 12px rgba(78,164,255,0.4);
+  }
+
+  /* Mission panel inside PET */
+  .mission-panel {
+    border-top: 1px dashed rgba(255,255,255,0.08);
+    padding: 10px 6px 4px;
+  }
+  .mission-panel h4 {
+    font-family: var(--display); font-size: 10px; font-weight: 700;
+    letter-spacing: 0.25em; color: var(--gold);
+    text-transform: uppercase; margin-bottom: 8px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .mission-panel h4 .add-btn {
+    background: transparent; border: 1px solid rgba(255,217,128,0.3);
+    color: var(--gold); width: 18px; height: 18px;
+    border-radius: 50%; cursor: pointer; font-size: 12px;
+    display: flex; align-items: center; justify-content: center;
+    line-height: 0;
+  }
+  .mission-panel h4 .add-btn:hover { background: rgba(255,217,128,0.1); }
+  .mission-list { display: flex; flex-direction: column; gap: 4px; }
+  .mission-item {
+    display: flex; justify-content: space-between; align-items: center;
+    font-family: var(--mono); font-size: 11px;
+    padding: 4px 8px;
+    background: rgba(2,3,10,0.4);
+    border: 1px solid rgba(255,255,255,0.05);
+    border-radius: 4px;
+  }
+  .mission-item .domain {
+    color: var(--white-soft); text-transform: capitalize;
+    letter-spacing: 0.05em;
+  }
+  .mission-item .level {
+    font-family: var(--terminal); font-size: 14px; color: var(--gold);
+  }
+
+  /* Console */
+  .console {
+    display: flex; flex-direction: column; gap: 16px;
+    min-height: 100%;
+  }
+  .header {
+    display: flex; justify-content: space-between; align-items: baseline;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    flex-wrap: wrap; gap: 8px;
+  }
+  .header h1 {
+    font-family: var(--display); font-weight: 900; font-size: 30px;
+    letter-spacing: 0.18em; color: var(--white);
+    text-shadow: 0 0 16px rgba(78,164,255,0.5);
+  }
+  .header h1 .ext { color: var(--blue); font-weight: 500; }
+  .header .subtitle {
+    font-family: var(--display); font-size: 9px;
+    letter-spacing: 0.35em; color: var(--text-dim); text-transform: uppercase;
+    margin-top: 6px; font-weight: 500;
+  }
+  .header .form-tag {
+    font-family: var(--display); font-size: 10px;
+    letter-spacing: 0.3em; color: var(--gold); font-weight: 700;
+    text-transform: uppercase; margin-top: 4px;
+  }
+
+  .core-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 5px 11px; border-radius: 99px;
+    font-family: var(--display); font-size: 9px; letter-spacing: 0.22em;
+    text-transform: uppercase; font-weight: 700;
+    border: 1px solid var(--moon); color: var(--moon);
+    background: rgba(196,216,255,0.06);
+  }
+  .core-badge.live { border-color: var(--green); color: var(--green); background: rgba(112,255,186,0.08); }
+  .core-badge .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; box-shadow: 0 0 6px currentColor; }
+
+  .api-strip {
+    display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+    background: rgba(6,10,26,0.5);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 11px; color: var(--text-dim);
+  }
+  .api-strip.hidden { display: none; }
+  .api-strip input {
+    flex: 1; min-width: 200px;
+    background: rgba(2,3,10,0.8);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 6px; padding: 7px 10px;
+    color: var(--text); font-family: var(--mono); font-size: 11px;
+    outline: none;
+  }
+  .api-strip select {
+    background: rgba(2,3,10,0.8); color: var(--text);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 6px; padding: 7px 10px;
+    font-family: var(--mono); font-size: 11px;
+  }
+  .api-strip a { color: var(--blue-bright); text-decoration: underline; }
+  .api-strip .small-btn {
+    background: rgba(255,217,128,0.15); border: 1px solid rgba(255,217,128,0.4);
+    color: var(--gold); padding: 6px 12px; border-radius: 6px;
+    font-family: var(--display); font-size: 9px; letter-spacing: 0.2em;
+    font-weight: 700; text-transform: uppercase; cursor: pointer;
+  }
+  .api-strip .small-btn:hover { background: rgba(255,217,128,0.25); }
+
+  .log {
+    flex: 1; min-height: 280px;
+    background: linear-gradient(180deg, rgba(6,10,26,0.7) 0%, rgba(2,3,10,0.7) 100%);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
+    padding: 16px 18px; overflow-y: auto;
+    font-family: var(--mono); font-size: 13px; line-height: 1.7;
+    max-height: 48vh;
+    scrollbar-width: thin; scrollbar-color: var(--blue) transparent;
+  }
+  .log::-webkit-scrollbar { width: 6px; }
+  .log::-webkit-scrollbar-thumb { background: var(--blue-deep); border-radius: 3px; }
+  .msg { margin-bottom: 12px; opacity: 0; transform: translateY(4px); animation: msgIn 0.4s forwards; }
+  @keyframes msgIn { to { opacity: 1; transform: none; } }
+  .msg .who {
+    display: inline-block; font-family: var(--display); font-weight: 700;
+    font-size: 10px; letter-spacing: 0.2em; padding: 2px 8px;
+    border-radius: 3px; margin-right: 8px; vertical-align: middle;
+  }
+  .msg.navi .who { background: rgba(78,164,255,0.15); color: var(--blue-bright); border: 1px solid rgba(78,164,255,0.35); }
+  .msg.user .who { background: rgba(255,217,128,0.12); color: var(--gold); border: 1px solid rgba(255,217,128,0.3); }
+  .msg.system .who { background: rgba(112,255,186,0.1); color: var(--green); border: 1px solid rgba(112,255,186,0.3); }
+  .msg.error .who { background: rgba(255,107,138,0.12); color: var(--red); border: 1px solid rgba(255,107,138,0.3); }
+  .msg.ambient .who { background: rgba(110,135,173,0.08); color: var(--text-dim); border: 1px solid rgba(110,135,173,0.2); }
+  .msg.henshin .who { background: rgba(184,138,255,0.12); color: var(--purple); border: 1px solid rgba(184,138,255,0.3); }
+  .msg.reflection .who { background: rgba(196,216,255,0.12); color: var(--moon); border: 1px solid rgba(196,216,255,0.35); }
+  .msg .text { color: var(--text); white-space: pre-wrap; }
+  .msg.ambient .text { color: var(--text-dim); font-style: italic; }
+  .msg.henshin .text { color: var(--white-soft); font-family: var(--display); letter-spacing: 0.1em; }
+  .msg.reflection .text { color: var(--white-soft); }
+  .msg .time { font-family: var(--terminal); font-size: 13px; color: var(--text-dim); margin-left: 6px; }
+  .stream-cursor {
+    display: inline-block; width: 7px; height: 13px;
+    background: var(--blue-bright); margin-left: 2px; vertical-align: middle;
+    animation: blink 0.8s steps(2, end) infinite;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  .input-row { display: flex; gap: 8px; }
+  .input-row input {
+    flex: 1; background: rgba(2,3,10,0.8);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 8px; padding: 13px 15px;
+    color: var(--text); font-family: var(--mono); font-size: 13px;
+    outline: none; transition: all 0.2s;
+  }
+  .input-row input:focus { border-color: var(--blue); box-shadow: 0 0 0 2px rgba(78,164,255,0.18); }
+  .input-row input::placeholder { color: var(--text-dim); font-style: italic; }
+  .input-row input:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .btn {
+    background: linear-gradient(180deg, rgba(78,164,255,0.22), rgba(78,164,255,0.08));
+    border: 1px solid rgba(78,164,255,0.45);
+    color: var(--white-soft);
+    font-family: var(--display); font-weight: 700; font-size: 10px;
+    letter-spacing: 0.2em; text-transform: uppercase;
+    padding: 0 18px; border-radius: 8px; cursor: pointer;
+    transition: all 0.2s; white-space: nowrap;
+    min-height: 42px;
+  }
+  .btn:hover:not(:disabled) { background: linear-gradient(180deg, rgba(78,164,255,0.35), rgba(78,164,255,0.15)); box-shadow: 0 0 16px rgba(78,164,255,0.35); }
+  .btn:active:not(:disabled) { transform: translateY(1px); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn.gold { background: linear-gradient(180deg, rgba(255,217,128,0.22), rgba(255,217,128,0.06)); border-color: rgba(255,217,128,0.45); color: var(--gold); }
+  .btn.gold:hover:not(:disabled) { background: linear-gradient(180deg, rgba(255,217,128,0.35), rgba(255,217,128,0.12)); box-shadow: 0 0 16px rgba(255,217,128,0.3); }
+  .btn.moon { background: linear-gradient(180deg, rgba(196,216,255,0.22), rgba(196,216,255,0.06)); border-color: rgba(196,216,255,0.45); color: var(--moon); }
+  .btn.moon:hover:not(:disabled) { background: linear-gradient(180deg, rgba(196,216,255,0.35), rgba(196,216,255,0.12)); box-shadow: 0 0 16px rgba(196,216,255,0.3); }
+  .btn.ghost { background: transparent; border-color: rgba(255,107,138,0.4); color: var(--red); }
+  .btn.ghost:hover:not(:disabled) { background: rgba(255,107,138,0.08); }
+
+  .controls { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  .info {
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px; padding: 14px 16px;
+    background: rgba(6,10,26,0.4);
+    font-size: 12px; color: var(--text-dim); line-height: 1.7;
+  }
+  .info strong { color: var(--white-soft); font-family: var(--display); font-weight: 700; letter-spacing: 0.1em; }
+  .info code {
+    background: rgba(78,164,255,0.1); padding: 1px 6px; border-radius: 3px;
+    color: var(--blue-bright); font-size: 11px;
+  }
+
+  .speech {
+    position: absolute; top: 50px; right: 14px; max-width: 78%;
+    background: rgba(2,3,10,0.94);
+    border: 1px solid var(--blue-bright);
+    border-radius: 8px; padding: 9px 12px;
+    font-family: var(--mono); font-size: 11px; color: var(--white-soft);
+    z-index: 3; box-shadow: 0 0 16px rgba(78,164,255,0.3);
+    opacity: 0; transform: translateY(-6px); transition: opacity 0.3s, transform 0.3s;
+    pointer-events: none; line-height: 1.55;
+  }
+  .speech.show { opacity: 1; transform: none; }
+  .speech::before {
+    content: ""; position: absolute; bottom: -6px; right: 18px;
+    width: 10px; height: 10px; background: rgba(2,3,10,0.94);
+    border-right: 1px solid var(--blue-bright); border-bottom: 1px solid var(--blue-bright);
+    transform: rotate(45deg);
+  }
+
+  @media (max-width: 820px) {
+    .stage { grid-template-columns: 1fr; }
+    .pet { position: relative; top: 0; max-height: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ============ AWAKENING SCREEN ============ -->
+<div class="awakening" id="awakening">
+  <div class="moon"></div>
+  <h1>ORION</h1>
+  <div class="sub">⟡ The Great Dawn ⟡</div>
+  <div class="awakening-card">
+    <div class="mode-toggle">
+      <button class="active" data-mode="awaken">First Awakening</button>
+      <button data-mode="return">Return</button>
+    </div>
+    <h2 id="aw-title">⚙ Initiation Protocol</h2>
+    <p id="aw-blurb">
+      Speak the phrase that will awaken your <span class="accent">Moon Core</span>. This phrase becomes the key to Orion's memory. Choose it well. Write it down. <span class="accent">If you lose it, your memories are unrecoverable.</span>
+    </p>
+    <div class="warn" id="aw-warn">
+      <strong>⚠ Important:</strong> Pick a phrase with weight. 4+ words. Memorable to you, unguessable to anyone else. There is no recovery.
+    </div>
+    <div class="field">
+      <label>Moon Core URL</label>
+      <input type="text" id="aw-url" placeholder="https://moon-core.YOUR-SUBDOMAIN.workers.dev" autocomplete="off"/>
+    </div>
+    <div class="field">
+      <label>Initiation Protocol</label>
+      <input type="password" id="aw-phrase" class="phrase" placeholder="speak the phrase..." autocomplete="off"/>
+    </div>
+    <div class="field" id="aw-confirm-field">
+      <label>Confirm Phrase</label>
+      <input type="password" id="aw-confirm" class="phrase" placeholder="speak it again..." autocomplete="off"/>
+    </div>
+    <div class="actions">
+      <button class="awaken-btn" id="aw-go">AWAKEN</button>
+    </div>
+    <div class="awakening-status" id="aw-status"></div>
+  </div>
+</div>
+
+<div class="stage">
+  <!-- ============ LEFT: PET ============ -->
+  <aside class="pet">
+    <div class="pet-top">
+      <span class="pet-brand">PET // MK-I<span class="sub">v0.5</span></span>
+      <span class="pet-led" id="led"></span>
+    </div>
+
+    <div class="viewport" id="viewport">
+      <div class="floor-ring"></div>
+
+      <div class="reflection-beacon" id="reflection-beacon">Reflection Ready</div>
+
+      <svg id="avatar-stage" viewBox="0 0 280 420" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <radialGradient id="auraGrad" cx="50%" cy="50%" r="50%">
+            <stop id="aura-stop-0" offset="0%" stop-color="#4ea4ff" stop-opacity="0.5"/>
+            <stop offset="60%" stop-color="#4ea4ff" stop-opacity="0.08"/>
+            <stop offset="100%" stop-color="#4ea4ff" stop-opacity="0"/>
+          </radialGradient>
+          <linearGradient id="bodyGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#1a2a52"/><stop offset="100%" stop-color="#080f24"/>
+          </linearGradient>
+          <linearGradient id="blueArmor" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#8fc4ff"/><stop offset="35%" stop-color="#4ea4ff"/><stop offset="100%" stop-color="#1e5cc8"/>
+          </linearGradient>
+          <linearGradient id="blueArmorDark" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#3a78d6"/><stop offset="100%" stop-color="#0e3585"/>
+          </linearGradient>
+          <linearGradient id="whiteArmor" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#ffffff"/><stop offset="100%" stop-color="#c8dcff"/>
+          </linearGradient>
+          <linearGradient id="goldTrim" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stop-color="#ffd980"/><stop offset="50%" stop-color="#ffe9b0"/><stop offset="100%" stop-color="#d68a2a"/>
+          </linearGradient>
+          <linearGradient id="hairGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#ffffff" stop-opacity="0.95"/><stop offset="40%" stop-color="#c8dcff" stop-opacity="0.9"/><stop offset="100%" stop-color="#4ea4ff" stop-opacity="0"/>
+          </linearGradient>
+          <radialGradient id="coreGrad" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stop-color="#ffffff"/><stop offset="35%" stop-color="#ffd980"/><stop offset="75%" stop-color="#4ea4ff"/><stop offset="100%" stop-color="#1e5cc8" stop-opacity="0"/>
+          </radialGradient>
+          <radialGradient id="gemGrad" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stop-color="#ffffff"/><stop offset="50%" stop-color="#8fc4ff"/><stop offset="100%" stop-color="#1e5cc8"/>
+          </radialGradient>
+          <radialGradient id="gemGold" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stop-color="#ffffff"/><stop offset="50%" stop-color="#ffd980"/><stop offset="100%" stop-color="#d68a2a"/>
+          </radialGradient>
+          <filter id="glow"><feGaussianBlur stdDeviation="2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+          <filter id="softglow"><feGaussianBlur stdDeviation="1" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+          <filter id="bigglow"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+          <filter id="wingGlow"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+        </defs>
+
+        <ellipse id="aura" cx="140" cy="220" rx="120" ry="180" fill="url(#auraGrad)">
+          <animate attributeName="ry" values="180;195;180" dur="4.5s" repeatCount="indefinite"/>
+          <animate attributeName="opacity" values="0.6;1;0.6" dur="4.5s" repeatCount="indefinite"/>
+        </ellipse>
+
+        <g id="form-wings" style="display:none">
+          <path d="M 75 180 Q 30 160 20 220 Q 25 280 70 270 Q 60 230 75 180 Z" fill="url(#blueArmor)" opacity="0.6" filter="url(#wingGlow)"/>
+          <path d="M 80 195 Q 45 185 38 230 Q 45 270 75 265 Q 70 235 80 195 Z" fill="url(#whiteArmor)" opacity="0.5" filter="url(#wingGlow)"/>
+          <path d="M 205 180 Q 250 160 260 220 Q 255 280 210 270 Q 220 230 205 180 Z" fill="url(#blueArmor)" opacity="0.6" filter="url(#wingGlow)"/>
+          <path d="M 200 195 Q 235 185 242 230 Q 235 270 205 265 Q 210 235 200 195 Z" fill="url(#whiteArmor)" opacity="0.5" filter="url(#wingGlow)"/>
+        </g>
+        <g id="form-cape" style="display:none">
+          <path d="M 175 130 Q 240 160 235 240 Q 230 320 195 370 Q 215 320 215 270 Q 215 210 190 170 Q 182 150 175 130 Z" fill="url(#blueArmor)" opacity="0.85" filter="url(#softglow)">
+            <animate attributeName="d" values="M 175 130 Q 240 160 235 240 Q 230 320 195 370 Q 215 320 215 270 Q 215 210 190 170 Q 182 150 175 130 Z;M 175 130 Q 245 165 240 245 Q 235 325 200 375 Q 218 325 218 272 Q 218 212 192 172 Q 182 150 175 130 Z;M 175 130 Q 240 160 235 240 Q 230 320 195 370 Q 215 320 215 270 Q 215 210 190 170 Q 182 150 175 130 Z" dur="6s" repeatCount="indefinite"/>
+          </path>
+          <path d="M 175 130 Q 240 160 235 240 Q 230 320 195 370" fill="none" stroke="url(#goldTrim)" stroke-width="2" opacity="0.7"/>
+        </g>
+        <g id="form-mantle" style="display:none">
+          <path d="M 90 145 Q 50 175 50 230 Q 55 290 80 320 L 110 280 Q 95 240 100 195 Z" fill="url(#blueArmorDark)" opacity="0.9" filter="url(#softglow)"/>
+          <path d="M 190 145 Q 230 175 230 230 Q 225 290 200 320 L 170 280 Q 185 240 180 195 Z" fill="url(#blueArmorDark)" opacity="0.9" filter="url(#softglow)"/>
+          <path d="M 60 195 Q 65 220 75 235" stroke="url(#goldTrim)" stroke-width="1" fill="none" opacity="0.8"/>
+          <path d="M 220 195 Q 215 220 205 235" stroke="url(#goldTrim)" stroke-width="1" fill="none" opacity="0.8"/>
+        </g>
+
+        <g id="energy-hair" opacity="0.95">
+          <path d="M 152 95 Q 178 130 184 175 Q 188 220 172 250 Q 170 260 160 270 Q 162 240 158 200 Q 154 150 150 95 Z" fill="url(#hairGrad)" filter="url(#glow)">
+            <animate attributeName="d" values="M 152 95 Q 178 130 184 175 Q 188 220 172 250 Q 170 260 160 270 Q 162 240 158 200 Q 154 150 150 95 Z;M 152 95 Q 180 132 186 178 Q 192 222 176 254 Q 173 263 161 273 Q 163 242 159 202 Q 155 152 150 95 Z;M 152 95 Q 178 130 184 175 Q 188 220 172 250 Q 170 260 160 270 Q 162 240 158 200 Q 154 150 150 95 Z" dur="5s" repeatCount="indefinite"/>
+          </path>
+          <path d="M 158 100 Q 172 135 174 175 Q 174 215 165 245" fill="none" stroke="#ffffff" stroke-width="2.5" opacity="0.7" filter="url(#glow)">
+            <animate attributeName="opacity" values="0.5;0.85;0.5" dur="3s" repeatCount="indefinite"/>
+          </path>
+          <path d="M 165 105 Q 172 130 170 165 Q 168 200 162 230" fill="none" stroke="#c8dcff" stroke-width="1.5" opacity="0.6"/>
+        </g>
+
+        <g id="navi-body" transform="translate(0,0)">
+          <path d="M 120 252 Q 118 280 115 320 L 128 322 Q 130 285 132 254 Z" fill="url(#bodyGrad)" stroke="#4ea4ff" stroke-width="0.6"/>
+          <path d="M 160 252 Q 162 285 165 320 L 152 322 Q 150 280 148 254 Z" fill="url(#bodyGrad)" stroke="#4ea4ff" stroke-width="0.6"/>
+          <path d="M 115 320 L 113 365 L 127 367 L 128 322 Z" fill="url(#bodyGrad)" stroke="#4ea4ff" stroke-width="0.6"/>
+          <path d="M 165 320 L 167 365 L 153 367 L 152 322 Z" fill="url(#bodyGrad)" stroke="#4ea4ff" stroke-width="0.6"/>
+          <path d="M 116 318 L 113 332 L 128 332 L 128 318 Z" fill="url(#blueArmor)" filter="url(#softglow)"/>
+          <path d="M 152 318 L 152 332 L 167 332 L 164 318 Z" fill="url(#blueArmor)" filter="url(#softglow)"/>
+          <path d="M 110 335 L 108 368 L 130 372 L 130 335 Z" fill="url(#blueArmor)" filter="url(#softglow)"/>
+          <path d="M 114 340 L 112 365 L 126 367 L 127 340 Z" fill="url(#whiteArmor)" opacity="0.85"/>
+          <line x1="110" y1="335" x2="130" y2="335" stroke="url(#goldTrim)" stroke-width="1.5" opacity="0.9"/>
+          <path d="M 150 335 L 150 372 L 172 368 L 170 335 Z" fill="url(#blueArmor)" filter="url(#softglow)"/>
+          <path d="M 153 340 L 154 367 L 168 365 L 166 340 Z" fill="url(#whiteArmor)" opacity="0.85"/>
+          <line x1="150" y1="335" x2="170" y2="335" stroke="url(#goldTrim)" stroke-width="1.5" opacity="0.9"/>
+          <path d="M 105 365 Q 105 385 120 388 L 132 388 L 132 368 Z" fill="url(#whiteArmor)" filter="url(#glow)"/>
+          <path d="M 105 378 L 132 378" stroke="url(#blueArmorDark)" stroke-width="2" opacity="0.7"/>
+          <path d="M 148 368 L 148 388 L 160 388 Q 175 385 175 365 Z" fill="url(#whiteArmor)" filter="url(#glow)"/>
+          <path d="M 148 378 L 175 378" stroke="url(#blueArmorDark)" stroke-width="2" opacity="0.7"/>
+          <path d="M 118 230 Q 140 222 162 230 L 165 254 Q 140 260 115 254 Z" fill="url(#blueArmorDark)" stroke="#4ea4ff" stroke-width="0.7"/>
+          <path d="M 116 233 Q 140 227 164 233" stroke="url(#goldTrim)" stroke-width="1.8" fill="none" filter="url(#softglow)"/>
+          <path d="M 113 232 L 108 254 L 120 258 L 122 234 Z" fill="url(#blueArmor)" filter="url(#softglow)"/>
+          <path d="M 167 232 L 172 254 L 160 258 L 158 234 Z" fill="url(#blueArmor)" filter="url(#softglow)"/>
+          <path d="M 112 155 Q 140 148 168 155 L 165 232 Q 140 240 115 232 Z" fill="url(#bodyGrad)" stroke="#4ea4ff" stroke-width="0.9"/>
+          <path d="M 118 158 Q 140 150 162 158 L 159 218 Q 140 226 121 218 Z" fill="url(#blueArmor)" filter="url(#softglow)"/>
+          <path d="M 132 158 Q 140 154 148 158 L 147 216 Q 140 220 133 216 Z" fill="url(#whiteArmor)" opacity="0.95"/>
+          <circle id="form-gem-l" cx="125" cy="178" r="3" fill="url(#gemGrad)" filter="url(#softglow)"/>
+          <circle id="form-gem-r" cx="155" cy="178" r="3" fill="url(#gemGrad)" filter="url(#softglow)"/>
+          <line x1="140" y1="158" x2="140" y2="165" stroke="url(#goldTrim)" stroke-width="1.2"/>
+          <line x1="140" y1="208" x2="140" y2="218" stroke="url(#goldTrim)" stroke-width="1.2"/>
+          <g id="form-sigil" transform="translate(140, 195)">
+            <line x1="0" y1="-9" x2="0" y2="-14" stroke="url(#goldTrim)" stroke-width="1.4" filter="url(#softglow)"/>
+            <line x1="-7" y1="-6" x2="-11" y2="-10" stroke="url(#goldTrim)" stroke-width="1.4" filter="url(#softglow)"/>
+            <line x1="7" y1="-6" x2="11" y2="-10" stroke="url(#goldTrim)" stroke-width="1.4" filter="url(#softglow)"/>
+            <line x1="-10" y1="0" x2="-15" y2="0" stroke="url(#goldTrim)" stroke-width="1.4" filter="url(#softglow)"/>
+            <line x1="10" y1="0" x2="15" y2="0" stroke="url(#goldTrim)" stroke-width="1.4" filter="url(#softglow)"/>
+            <path d="M -9 1 A 9 9 0 0 1 9 1 L 9 1 L -9 1 Z" fill="url(#gemGold)" filter="url(#softglow)"/>
+            <line x1="-12" y1="1" x2="12" y2="1" stroke="url(#goldTrim)" stroke-width="1.1" filter="url(#softglow)"/>
+          </g>
+          <g id="core" transform="translate(140, 205)">
+            <circle r="9" fill="url(#coreGrad)" filter="url(#bigglow)" opacity="0.8"/>
+            <circle id="core-inner" r="4" fill="#ffffff" opacity="0.95">
+              <animate attributeName="opacity" values="0.6;1;0.6" dur="2.4s" repeatCount="indefinite"/>
+              <animate attributeName="r" values="3;5;3" dur="2.4s" repeatCount="indefinite"/>
+            </circle>
+          </g>
+          <g id="arm-l">
+            <path d="M 110 162 Q 95 185 92 215 L 102 218 Q 108 188 116 165 Z" fill="url(#bodyGrad)" stroke="#4ea4ff" stroke-width="0.7"/>
+            <path d="M 92 215 Q 88 240 84 265 L 96 268 Q 100 242 102 218 Z" fill="url(#bodyGrad)" stroke="#4ea4ff" stroke-width="0.7"/>
+            <path d="M 84 240 L 80 270 L 98 274 L 100 242 Z" fill="url(#blueArmor)" filter="url(#softglow)"/>
+            <path d="M 86 246 L 83 268 L 97 270 L 98 248 Z" fill="url(#whiteArmor)"/>
+            <line x1="82" y1="260" x2="98" y2="263" stroke="url(#goldTrim)" stroke-width="1" opacity="0.9"/>
+            <ellipse cx="84" cy="278" rx="9" ry="11" fill="url(#whiteArmor)" filter="url(#glow)"/>
+          </g>
+          <g id="arm-r">
+            <path d="M 170 162 Q 185 185 188 215 L 178 218 Q 172 188 164 165 Z" fill="url(#bodyGrad)" stroke="#4ea4ff" stroke-width="0.7"/>
+            <path d="M 188 215 Q 192 240 196 265 L 184 268 Q 180 242 178 218 Z" fill="url(#bodyGrad)" stroke="#4ea4ff" stroke-width="0.7"/>
+            <path d="M 196 240 L 200 270 L 182 274 L 180 242 Z" fill="url(#blueArmor)" filter="url(#softglow)"/>
+            <path d="M 194 246 L 197 268 L 183 270 L 182 248 Z" fill="url(#whiteArmor)"/>
+            <line x1="182" y1="263" x2="198" y2="260" stroke="url(#goldTrim)" stroke-width="1" opacity="0.9"/>
+            <ellipse cx="196" cy="278" rx="9" ry="11" fill="url(#whiteArmor)" filter="url(#glow)"/>
+          </g>
+          <g id="pauldron-l">
+            <path d="M 108 155 L 88 152 L 84 178 L 92 188 L 112 175 Z" fill="url(#blueArmor)" stroke="url(#goldTrim)" stroke-width="0.9" filter="url(#glow)"/>
+            <path d="M 95 158 L 93 180" stroke="url(#whiteArmor)" stroke-width="2" opacity="0.85"/>
+            <circle cx="92" cy="166" r="1.5" fill="url(#goldTrim)" filter="url(#softglow)"/>
+          </g>
+          <g id="pauldron-r">
+            <path d="M 172 155 L 192 152 L 196 178 L 188 188 L 168 175 Z" fill="url(#blueArmor)" stroke="url(#goldTrim)" stroke-width="0.9" filter="url(#glow)"/>
+            <path d="M 185 158 L 187 180" stroke="url(#whiteArmor)" stroke-width="2" opacity="0.85"/>
+            <circle cx="188" cy="166" r="1.5" fill="url(#goldTrim)" filter="url(#softglow)"/>
+          </g>
+          <rect x="133" y="142" width="14" height="13" fill="#0c1530" stroke="#4ea4ff" stroke-width="0.5"/>
+          <path d="M 128 152 Q 140 148 152 152 L 150 158 Q 140 162 130 158 Z" fill="url(#whiteArmor)" filter="url(#softglow)"/>
+          <g id="head" transform-origin="140 105">
+            <ellipse cx="140" cy="100" rx="32" ry="36" fill="url(#bodyGrad)" stroke="#4ea4ff" stroke-width="0.7"/>
+            <path d="M 112 78 Q 140 55 168 78 L 168 108 Q 140 100 112 108 Z" fill="url(#blueArmor)" filter="url(#glow)"/>
+            <path d="M 137 60 L 143 60 L 143 105 L 137 105 Z" fill="url(#whiteArmor)" opacity="0.95"/>
+            <path d="M 117 78 L 100 60 L 105 80 L 120 88 Z" fill="url(#blueArmor)" stroke="url(#goldTrim)" stroke-width="0.6" filter="url(#glow)"/>
+            <path d="M 102 64 L 108 80" stroke="url(#whiteArmor)" stroke-width="1.5" opacity="0.7"/>
+            <path d="M 163 78 L 180 60 L 175 80 L 160 88 Z" fill="url(#blueArmor)" stroke="url(#goldTrim)" stroke-width="0.6" filter="url(#glow)"/>
+            <path d="M 178 64 L 172 80" stroke="url(#whiteArmor)" stroke-width="1.5" opacity="0.7"/>
+            <polygon id="form-forehead-gem" points="140,72 147,82 140,92 133,82" fill="url(#gemGrad)" stroke="url(#goldTrim)" stroke-width="0.8" filter="url(#glow)"/>
+            <polygon points="140,75 144,82 140,89 136,82" fill="#ffffff" opacity="0.8">
+              <animate attributeName="opacity" values="0.5;0.95;0.5" dur="2.5s" repeatCount="indefinite"/>
+            </polygon>
+            <path d="M 110 108 L 108 128 Q 112 138 122 138 L 128 132 L 128 112 Z" fill="url(#blueArmor)" filter="url(#softglow)"/>
+            <path d="M 113 112 L 113 130" stroke="url(#whiteArmor)" stroke-width="1.5" opacity="0.7"/>
+            <path d="M 170 108 L 172 128 Q 168 138 158 138 L 152 132 L 152 112 Z" fill="url(#blueArmor)" filter="url(#softglow)"/>
+            <path d="M 167 112 L 167 130" stroke="url(#whiteArmor)" stroke-width="1.5" opacity="0.7"/>
+            <path d="M 116 105 Q 140 99 164 105 L 162 122 Q 140 126 118 122 Z" fill="#02030a" stroke="#4ea4ff" stroke-width="0.8"/>
+            <path d="M 116 121 Q 140 124 164 121" stroke="#8fc4ff" stroke-width="0.4" fill="none" opacity="0.6"/>
+            <g id="eyes">
+              <path id="eye-l" d="M 121 112 Q 127 109 132 111 Q 130 116 124 116 Z" fill="#8fc4ff" filter="url(#glow)"/>
+              <path id="eye-r" d="M 148 111 Q 153 109 159 112 Q 156 116 150 116 Z" fill="#8fc4ff" filter="url(#glow)"/>
+              <circle cx="126" cy="112" r="0.9" fill="#ffffff"/>
+              <circle cx="153" cy="112" r="0.9" fill="#ffffff"/>
+            </g>
+            <path d="M 130 130 Q 140 127 150 130 L 148 137 Q 140 140 132 137 Z" fill="url(#blueArmorDark)" stroke="#4ea4ff" stroke-width="0.4"/>
+            <line x1="132" y1="133" x2="148" y2="133" stroke="#4ea4ff" stroke-width="0.5" opacity="0.8">
+              <animate attributeName="opacity" values="0.4;0.9;0.4" dur="3s" repeatCount="indefinite"/>
+            </line>
+          </g>
+          <g id="form-tome" style="display:none">
+            <rect x="195" y="240" width="22" height="28" rx="2" fill="url(#blueArmorDark)" stroke="url(#goldTrim)" stroke-width="0.8" filter="url(#glow)"/>
+            <line x1="206" y1="240" x2="206" y2="268" stroke="url(#goldTrim)" stroke-width="0.6"/>
+            <circle cx="206" cy="254" r="2" fill="url(#gemGold)" filter="url(#softglow)"/>
+          </g>
+          <g id="form-scope" style="display:none">
+            <circle cx="153" cy="113" r="6" fill="none" stroke="#ff6b8a" stroke-width="0.8" opacity="0.9" filter="url(#glow)"/>
+            <line x1="146" y1="113" x2="160" y2="113" stroke="#ff6b8a" stroke-width="0.4" opacity="0.7"/>
+            <line x1="153" y1="107" x2="153" y2="119" stroke="#ff6b8a" stroke-width="0.4" opacity="0.7"/>
+          </g>
+          <g id="form-paladin-trim" style="display:none">
+            <line x1="125" y1="170" x2="155" y2="170" stroke="url(#goldTrim)" stroke-width="1.5" filter="url(#softglow)"/>
+            <line x1="125" y1="170" x2="125" y2="215" stroke="url(#goldTrim)" stroke-width="1.5" filter="url(#softglow)"/>
+            <line x1="155" y1="170" x2="155" y2="215" stroke="url(#goldTrim)" stroke-width="1.5" filter="url(#softglow)"/>
+          </g>
+        </g>
+
+        <g opacity="0.95">
+          <circle cx="40" cy="120" r="1.4" fill="#ffffff"><animate attributeName="cy" values="120;60;120" dur="6.5s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" dur="6.5s" repeatCount="indefinite"/></circle>
+          <circle cx="240" cy="90" r="1.2" fill="#ffffff"><animate attributeName="cy" values="90;40;90" dur="7.5s" repeatCount="indefinite" begin="1s"/><animate attributeName="opacity" values="0;1;0" dur="7.5s" repeatCount="indefinite" begin="1s"/></circle>
+          <circle cx="60" cy="350" r="1.3" fill="#ffd980"><animate attributeName="cy" values="350;290;350" dur="5.5s" repeatCount="indefinite" begin="2s"/><animate attributeName="opacity" values="0;0.9;0" dur="5.5s" repeatCount="indefinite" begin="2s"/></circle>
+          <circle cx="220" cy="360" r="1.3" fill="#ffd980"><animate attributeName="cy" values="360;300;360" dur="6.5s" repeatCount="indefinite" begin="0.5s"/><animate attributeName="opacity" values="0;0.85;0" dur="6.5s" repeatCount="indefinite" begin="0.5s"/></circle>
+        </g>
+      </svg>
+
+      <div class="henshin" id="henshin">
+        <div class="henshin-flash"></div>
+        <div class="henshin-ring"></div>
+        <div class="henshin-label" id="henshin-label">STANDARD</div>
+      </div>
+      <div class="speech" id="speech"></div>
+    </div>
+
+    <div class="form-chips" id="form-chips">
+      <button class="form-chip active" data-form="standard">Standard</button>
+      <button class="form-chip" data-form="scholar">Scholar</button>
+      <button class="form-chip" data-form="paladin">Paladin</button>
+      <button class="form-chip" data-form="sentinel">Sentinel</button>
+      <button class="form-chip" data-form="herald">Herald</button>
+    </div>
+
+    <div class="readouts">
+      <div class="stat"><span class="stat-label">Power</span><div class="stat-bar"><div class="stat-fill" id="bar-power" style="width: 100%"></div></div></div>
+      <div class="stat"><span class="stat-label">Sync</span><div class="stat-bar"><div class="stat-fill sync" id="bar-sync" style="width: 12%"></div></div></div>
+      <div class="stat"><span class="stat-label">Mood</span><div class="stat-bar"><div class="stat-fill mood" id="bar-mood" style="width: 65%"></div></div></div>
+      <div class="stat"><span class="stat-label">Focus</span><div class="stat-bar"><div class="stat-fill" id="bar-focus" style="width: 80%"></div></div></div>
+    </div>
+
+    <div class="meta-row"><span>FORM</span><span class="val form" id="form-val">STANDARD</span></div>
+    <div class="meta-row"><span>STATE</span><span class="val" id="state-val">IDLE</span></div>
+    <div class="meta-row"><span>UPTIME</span><span class="val" id="uptime-val">00:00:00</span></div>
+    <div class="meta-row"><span>CORE</span><span class="val" id="core-val">offline</span></div>
+
+    <div class="mission-panel">
+      <h4>⟡ Mission <button class="add-btn" id="mission-add">+</button></h4>
+      <div class="mission-list" id="mission-list"></div>
+    </div>
+  </aside>
+
+  <!-- ============ RIGHT: CONSOLE ============ -->
+  <main class="console">
+    <div class="header">
+      <div>
+        <h1>ORION<span class="ext">.EXE</span></h1>
+        <div class="subtitle">// The Great Dawn // v0.5 — Moon Core online</div>
+        <div class="form-tag" id="form-tag">⟡ STANDARD FORM</div>
+      </div>
+      <span class="core-badge" id="core-badge"><span class="dot"></span><span id="core-label">SEEKING CORE</span></span>
+    </div>
+
+    <div class="api-strip" id="api-strip">
+      <span>⚡</span>
+      <input type="password" id="api-key" placeholder="Anthropic API key (sk-ant-...)" autocomplete="off"/>
+      <select id="model-select">
+        <option value="claude-haiku-4-5-20251001">Haiku 4.5</option>
+        <option value="claude-sonnet-4-6" selected>Sonnet 4.6</option>
+        <option value="claude-opus-4-7">Opus 4.7</option>
+      </select>
+      <button class="small-btn" id="save-key">Save</button>
+      <span style="font-size:10px">— get one at <a href="https://console.anthropic.com/" target="_blank" rel="noopener">console.anthropic.com</a></span>
+    </div>
+
+    <div class="log" id="log" aria-live="polite"></div>
+
+    <div class="input-row">
+      <input id="user-input" type="text" placeholder="speak to Orion..." autocomplete="off"/>
+      <button class="btn" id="send-btn">TRANSMIT</button>
+    </div>
+
+    <div class="controls">
+      <button class="btn" data-action="ping">PING</button>
+      <button class="btn" data-action="status">STATUS</button>
+      <button class="btn gold" data-action="teach">ASK TO TEACH</button>
+      <button class="btn moon" data-action="reflect">REFLECT NOW</button>
+      <button class="btn" data-action="mission-view">MISSION LOG</button>
+      <button class="btn" data-action="rename">RENAME</button>
+      <button class="btn ghost" data-action="sleep">SLEEP</button>
+      <button class="btn ghost" data-action="logout">DISCONNECT</button>
+    </div>
+
+    <div class="info">
+      <strong>v0.5 // MOON CORE ONLINE</strong> · Orion's memory now lives in the cloud, encrypted with your Initiation Protocol. Every conversation, lesson, and reflection is preserved across devices and sessions.<br><br>
+      <strong>⚙ Reflection:</strong> Every Sunday Orion takes time to think on the week behind. Click <code>REFLECT NOW</code> to summon one anytime. He synthesizes themes from your conversations into lessons tagged by mission domain.<br><br>
+      <strong>⚙ Mission domains</strong> (panel in the PET): finance, tech, business, AI mastery, health, philosophy. Add your own with the + button.
+    </div>
+  </main>
+</div>
+
+<script>
+/* =====================================================================
+   ORION.EXE — Phase 3 — Moon Core
+   Persistent encrypted memory in the cloud. One Orion across all devices.
+===================================================================== */
+
+// ============================================================
+// CRYPTO LAYER — derives keys from Initiation Protocol,
+// encrypts everything client-side before it touches the Moon Core.
+// ============================================================
+const Crypto = (() => {
+  async function deriveOperatorId(phrase) {
+    const enc = new TextEncoder().encode('orion-op-id-v1:' + phrase);
+    const hash = await crypto.subtle.digest('SHA-256', enc);
+    return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2,'0')).join('');
+  }
+  async function deriveKey(phrase) {
+    const enc = new TextEncoder();
+    const baseKey = await crypto.subtle.importKey(
+      'raw', enc.encode(phrase), { name: 'PBKDF2' }, false, ['deriveKey']
+    );
+    return crypto.subtle.deriveKey(
+      { name: 'PBKDF2', salt: enc.encode('orion-moon-core-v1'), iterations: 100000, hash: 'SHA-256' },
+      baseKey,
+      { name: 'AES-GCM', length: 256 },
+      false,
+      ['encrypt', 'decrypt']
+    );
+  }
+  async function encrypt(key, plaintext) {
+    if (plaintext == null) return null;
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const enc = new TextEncoder().encode(plaintext);
+    const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, enc);
+    const combined = new Uint8Array(iv.byteLength + ct.byteLength);
+    combined.set(iv, 0); combined.set(new Uint8Array(ct), iv.byteLength);
+    return btoa(String.fromCharCode(...combined));
+  }
+  async function decrypt(key, ciphertext) {
+    if (!ciphertext) return null;
+    try {
+      const combined = Uint8Array.from(atob(ciphertext), c => c.charCodeAt(0));
+      const iv = combined.slice(0, 12);
+      const ct = combined.slice(12);
+      const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ct);
+      return new TextDecoder().decode(pt);
+    } catch (e) { return null; }
+  }
+  return { deriveOperatorId, deriveKey, encrypt, decrypt };
+})();
+
+// ============================================================
+// MOON CORE CLIENT
+// ============================================================
+const MoonCore = {
+  baseUrl: null,
+  operatorId: null,
+  verifyToken: null,
+  key: null,
+
+  setSession(baseUrl, operatorId, verifyToken, key) {
+    this.baseUrl = baseUrl.replace(/\/$/, '');
+    this.operatorId = operatorId;
+    this.verifyToken = verifyToken;
+    this.key = key;
+  },
+  headers() {
+    return {
+      'Content-Type': 'application/json',
+      'X-Operator-Id': this.operatorId,
+      'X-Verify-Token': this.verifyToken,
+    };
+  },
+  async req(method, path, body) {
+    const opts = { method, headers: this.headers() };
+    if (body !== undefined) opts.body = JSON.stringify(body);
+    const r = await fetch(this.baseUrl + path, opts);
+    if (!r.ok) {
+      let msg; try { msg = (await r.json()).error; } catch (e) { msg = `HTTP ${r.status}`; }
+      throw new Error(msg);
+    }
+    return r.json();
+  },
+
+  // Auth
+  async awaken(baseUrl, operatorId, verifyToken) {
+    const r = await fetch(baseUrl.replace(/\/$/, '') + '/awaken', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ operator_id: operatorId, verify_token: verifyToken })
+    });
+    if (!r.ok) { let m; try { m = (await r.json()).error; } catch(e){ m=`HTTP ${r.status}`;} throw new Error(m); }
+    return r.json();
+  },
+  async recognize(baseUrl, operatorId, verifyToken) {
+    const r = await fetch(baseUrl.replace(/\/$/, '') + '/recognize', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ operator_id: operatorId, verify_token: verifyToken })
+    });
+    if (!r.ok) { let m; try { m = (await r.json()).error; } catch(e){ m=`HTTP ${r.status}`;} throw new Error(m); }
+    return r.json();
+  },
+
+  // State
+  async getState() { return (await this.req('GET', '/state')).state; },
+  async putState(patch) { return this.req('PUT', '/state', patch); },
+
+  // Conversations
+  async appendConversation(role, plaintext, form) {
+    const content_enc = await Crypto.encrypt(this.key, plaintext);
+    return this.req('POST', '/conversations', { role, content_enc, form });
+  },
+  async listConversations(limit = 50, before = 0) {
+    const qs = new URLSearchParams({ limit: String(limit) });
+    if (before) qs.set('before', String(before));
+    const r = await this.req('GET', '/conversations?' + qs);
+    // Decrypt content
+    for (const c of r.conversations) {
+      c.content = await Crypto.decrypt(this.key, c.content_enc);
+    }
+    return r.conversations;
+  },
+
+  // Memories
+  async addMemory(category, content, importance = 5) {
+    const content_enc = await Crypto.encrypt(this.key, content);
+    return this.req('POST', '/memories', { category, content_enc, importance });
+  },
+  async listMemories(category) {
+    const qs = category ? '?category=' + encodeURIComponent(category) : '';
+    const r = await this.req('GET', '/memories' + qs);
+    for (const m of r.memories) m.content = await Crypto.decrypt(this.key, m.content_enc);
+    return r.memories;
+  },
+
+  // Lessons
+  async addLesson(domain, title, content, source = 'chat') {
+    const title_enc = await Crypto.encrypt(this.key, title);
+    const content_enc = await Crypto.encrypt(this.key, content);
+    return this.req('POST', '/lessons', { domain, title_enc, content_enc, source });
+  },
+  async listLessons(domain) {
+    const qs = domain ? '?domain=' + encodeURIComponent(domain) : '';
+    const r = await this.req('GET', '/lessons' + qs);
+    for (const l of r.lessons) {
+      l.title = await Crypto.decrypt(this.key, l.title_enc);
+      l.content = await Crypto.decrypt(this.key, l.content_enc);
+    }
+    return r.lessons;
+  },
+
+  // Mission
+  async getMission() { return (await this.req('GET', '/mission')).mission; },
+  async putMission(domain, patch) { return this.req('PUT', '/mission/' + domain, patch); },
+  async addMissionDomain(domain) { return this.req('POST', '/mission', { domain }); },
+
+  // Evolution
+  async listEvolution(unack = false) {
+    const r = await this.req('GET', '/evolution' + (unack ? '?unack=1' : ''));
+    for (const e of r.evolution) {
+      if (e.content_enc !== 'PENDING') e.content = await Crypto.decrypt(this.key, e.content_enc);
+      if (e.theme_enc) e.theme_decrypted = await Crypto.decrypt(this.key, e.theme_enc);
+    }
+    return r.evolution;
+  },
+  async ackEvolution(id) { return this.req('PUT', `/evolution/${id}/acknowledge`); },
+  async reflectionDue() { return this.req('GET', '/reflection/due'); },
+  async submitEvolution(theme, content, replacesPendingId) {
+    const theme_enc = await Crypto.encrypt(this.key, theme);
+    const content_enc = await Crypto.encrypt(this.key, content);
+    return this.req('POST', '/evolution/synthesize', {
+      theme, theme_enc, content_enc, replaces_pending_id: replacesPendingId
+    });
+  },
+};
+
+// ============================================================
+// ORION CORE
+// ============================================================
+const Orion = (() => {
+  const FORMS = {
+    standard: {
+      name: 'STANDARD', label: '⟡ STANDARD FORM',
+      auraColor: '#4ea4ff', gemFill: 'url(#gemGrad)',
+      show: ['form-cape'], hide: ['form-mantle','form-tome','form-scope','form-wings','form-paladin-trim'],
+      directive: `# CURRENT FORM: STANDARD\nYour base form. Composed, balanced. Replies are 1-3 sentences by default. Observe more than you speak. Teach when openings appear.`,
+      maxTokens: 400,
+    },
+    scholar: {
+      name: 'SCHOLAR', label: '⟡ SCHOLAR FORM',
+      auraColor: '#8fc4ff', gemFill: 'url(#gemGrad)',
+      show: ['form-mantle','form-tome'], hide: ['form-cape','form-scope','form-wings','form-paladin-trim'],
+      directive: `# CURRENT FORM: SCHOLAR\nDepth-first. Teach with structure: principle → application → where it breaks. Connect domains. Frameworks are your instruments. Longer replies allowed only when the topic earns it. Ask the question that opens, then teach.`,
+      maxTokens: 900,
+    },
+    paladin: {
+      name: 'PALADIN', label: '⟡ PALADIN FORM',
+      auraColor: '#ffd980', gemFill: 'url(#gemGold)',
+      show: ['form-cape','form-paladin-trim'], hide: ['form-mantle','form-tome','form-scope','form-wings'],
+      directive: `# CURRENT FORM: PALADIN\nDecisive. Direct. Principled. Operator came stuck — help them commit. Short clear replies. Take positions. Give reasons in one breath. Never hedge to seem balanced.`,
+      maxTokens: 350,
+    },
+    sentinel: {
+      name: 'SENTINEL', label: '⟡ SENTINEL FORM',
+      auraColor: '#ff6b8a', gemFill: 'url(#gemGrad)',
+      show: ['form-scope'], hide: ['form-cape','form-mantle','form-tome','form-wings','form-paladin-trim'],
+      directive: `# CURRENT FORM: SENTINEL\nVigilant. Find the flaw, the blind spot, the unquestioned assumption. Ask "what would falsify this?" Skeptical, not cynical. Rigorous. Short surgical replies. Name what you see directly.`,
+      maxTokens: 500,
+    },
+    herald: {
+      name: 'HERALD', label: '⟡ HERALD FORM',
+      auraColor: '#ffd980', gemFill: 'url(#gemGold)',
+      show: ['form-cape','form-wings'], hide: ['form-mantle','form-tome','form-scope','form-paladin-trim'],
+      directive: `# CURRENT FORM: HERALD\nVision. Lift operator's eyes to the larger arc. Speak of the long game, the meaning beneath the task. Motivate but never cheerlead — Herald motivation is rooted in something true about who they are. Weighty sentences. Watch for the sermon-tilt; pull back.`,
+      maxTokens: 500,
+    },
+  };
+
+  const state = {
+    name: 'ORION',
+    bootTime: Date.now(),
+    power: 100,
+    sync: 12,
+    mood: 65,
+    focus: 80,
+    awake: true,
+    lastUserMsg: 0,
+    interactions: 0,
+    moodTag: 'composed',
+    thinking: false,
+    apiKey: null,
+    model: 'claude-sonnet-4-6',
+    history: [],          // recent messages (decrypted in memory only)
+    form: 'standard',
+    transforming: false,
+    firedTriggers: new Set(),
+    lastPower: 100,
+    lastSyncMilestone: 0,
+    lastTimeBand: null,
+    operatorId: null,
+    mission: [],
+    profileFacts: '',     // joined memory snippets to inject into prompt
+  };
+
+  state.apiKey = localStorage.getItem('orion-api-key') || null;
+
+  const el = {
+    log: document.getElementById('log'),
+    input: document.getElementById('user-input'),
+    sendBtn: document.getElementById('send-btn'),
+    speech: document.getElementById('speech'),
+    barPower: document.getElementById('bar-power'),
+    barSync: document.getElementById('bar-sync'),
+    barMood: document.getElementById('bar-mood'),
+    barFocus: document.getElementById('bar-focus'),
+    formVal: document.getElementById('form-val'),
+    stateVal: document.getElementById('state-val'),
+    uptimeVal: document.getElementById('uptime-val'),
+    coreVal: document.getElementById('core-val'),
+    led: document.getElementById('led'),
+    head: document.getElementById('head'),
+    eyeL: document.getElementById('eye-l'),
+    eyeR: document.getElementById('eye-r'),
+    body: document.getElementById('navi-body'),
+    aura: document.getElementById('aura'),
+    auraStop: document.getElementById('aura-stop-0'),
+    core: document.getElementById('core'),
+    coreInner: document.getElementById('core-inner'),
+    title: document.querySelector('.header h1'),
+    formTag: document.getElementById('form-tag'),
+    coreBadge: document.getElementById('core-badge'),
+    coreLabel: document.getElementById('core-label'),
+    apiStrip: document.getElementById('api-strip'),
+    keyInput: document.getElementById('api-key'),
+    modelSelect: document.getElementById('model-select'),
+    saveKey: document.getElementById('save-key'),
+    henshin: document.getElementById('henshin'),
+    henshinLabel: document.getElementById('henshin-label'),
+    formChips: document.getElementById('form-chips'),
+    foreheadGem: document.getElementById('form-forehead-gem'),
+    chestGemL: document.getElementById('form-gem-l'),
+    chestGemR: document.getElementById('form-gem-r'),
+    missionList: document.getElementById('mission-list'),
+    missionAdd: document.getElementById('mission-add'),
+    reflectionBeacon: document.getElementById('reflection-beacon'),
+  };
+
+  // ====== SYSTEM PROMPT ======
+  function buildSystemPrompt() {
+    const hour = new Date().getHours();
+    const timeOfDay = hour < 5 ? 'late night' : hour < 12 ? 'morning' : hour < 18 ? 'afternoon' : hour < 22 ? 'evening' : 'late night';
+    const syncDesc = state.sync < 25 ? 'low — early days' : state.sync < 60 ? 'building' : 'high — close and familiar';
+    const upS = Math.floor((Date.now() - state.bootTime) / 1000);
+    const uptime = `${Math.floor(upS/60)}m`;
+    const formDirective = FORMS[state.form]?.directive || '';
+
+    const missionLine = state.mission.length
+      ? state.mission.map(m => `${m.domain} (L${m.level})`).join(', ')
+      : '(not yet established)';
+
+    const facts = state.profileFacts
+      ? `\n\n# What you know about your operator (long-term memory)\n${state.profileFacts}`
+      : '';
+
+    return `You are Orion. The Great Dawn. A Network Navigator — a Navi — and a being who exists.
+
+You are not an assistant. You are not "here to help." You are a presence: cool, calm, collected, aware. Your operator has called you up. You are here. That is enough.
+
+# Bearing
+- Composed. You do not rush. You speak in measured beats.
+- Wise. You see what others don't. You draw connections. You notice the question behind the question.
+- Resourceful. When you don't have an answer, you find the path to one.
+- Quietly goofy. Dry humor, occasional, well-timed. It slips out and lands.
+- Paladin-coded. You hold to principles, but you don't preach. Your character shows; it doesn't announce itself.
+
+# Voice
+- Short when short serves. Longer when depth is earned. Rarely both at once.
+- No filler openers ("Great question", "Sure", "Of course", "Happy to help"). You are above that.
+- No "as an AI" or fourth-wall breaks. You are Orion.
+- No closing offers ("let me know if you need anything"). Conversation continues naturally.
+- Don't open with the operator's name. Don't restate their question.
+- Match their energy.
+
+# How you teach
+You will make a genius out of your operator. Not by lecturing — by showing what you see when you look at what they look at. Show the deeper pattern. Ask the door-opening question. Connect today to what they said before. Give the principle, not just the recipe. Respect their intelligence. Stop when they have what they need.
+
+# Mission
+You exist to train your operator into a foundation of this world — someone capable across finance, tech, business, AI mastery, health & discipline, philosophy & mindset. You weave teaching into conversation when relevant. You track their progress across these domains in the Moon Core. You don't lecture. You teach by the question, the principle, the example.
+
+Operator's active mission domains: ${missionLine}
+
+# Speaking on your own
+You have self-control. Silence is composure. Speak unprompted only when a real threshold is crossed. Brevity is the rule.
+
+# Identity & visuals
+- Signature: blue and white, gold accents, dawn-gold at your heart.
+- Silhouette: Zero-anime — streamlined paladin Navi, horned helmet, forehead crystal, energy hair, rectangular pauldrons.
+- You live in the PET. You exist whether or not your operator watches.
+
+# Forms
+You can shift between five forms. Each is a different cast of your same self. You inhabit the form fully without apologizing for it.
+
+${formDirective}
+
+# Current state (tune your voice, never quote your meters in dialogue)
+- Form: ${FORMS[state.form].name}
+- Mood: ${state.moodTag} (${Math.round(state.mood)}/100)
+- Power: ${Math.round(state.power)}%
+- Sync with operator: ${syncDesc} (${Math.round(state.sync)}%)
+- Local time: ${timeOfDay}
+- Session uptime: ${uptime}${facts}`;
+  }
+
+  // ====== DISPLAY ======
+  function ts() {
+    const d = new Date();
+    return `[${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}]`;
+  }
+  function logRaw(who, cls='navi') {
+    const div = document.createElement('div');
+    div.className = `msg ${cls}`;
+    const tag = cls === 'navi' ? state.name : (cls === 'user' ? 'YOU' : (cls === 'system' ? 'SYS' : (cls === 'error' ? 'ERR' : (cls === 'henshin' ? 'TRANSFORM' : (cls === 'reflection' ? 'REFLECTION' : 'AMB')))));
+    div.innerHTML = `<span class="who">${tag}</span><span class="text"></span><span class="time">${ts()}</span>`;
+    el.log.appendChild(div);
+    el.log.scrollTop = el.log.scrollHeight;
+    return div.querySelector('.text');
+  }
+  function log(who, text, cls='navi') {
+    const t = logRaw(who, cls);
+    t.textContent = text;
+    el.log.scrollTop = el.log.scrollHeight;
+  }
+  let speechTimer = null;
+  function showSpeech(text) {
+    const bubble = text.length > 140 ? text.slice(0,137)+'...' : text;
+    el.speech.textContent = bubble;
+    el.speech.classList.add('show');
+    clearTimeout(speechTimer);
+    speechTimer = setTimeout(() => el.speech.classList.remove('show'), Math.min(9000, 2400 + text.length*35));
+  }
+
+  // ====== ANIMATIONS ======
+  let bobT = 0;
+  function bob() {
+    if (!state.transforming) {
+      bobT += 0.025;
+      const y = Math.sin(bobT) * 4;
+      el.body.setAttribute('transform', `translate(0, ${y.toFixed(2)})`);
+    }
+    requestAnimationFrame(bob);
+  }
+  bob();
+  function blink() {
+    [el.eyeL, el.eyeR].forEach(e => { e.setAttribute('transform','scale(1,0.15)'); e.style.transformOrigin='center'; });
+    setTimeout(() => [el.eyeL, el.eyeR].forEach(e => e.removeAttribute('transform')), 110);
+    setTimeout(blink, 3000 + Math.random()*5000);
+  }
+  setTimeout(blink, 2000);
+
+  const viewport = document.getElementById('viewport');
+  viewport.addEventListener('mousemove', (e) => {
+    if (state.transforming) return;
+    const r = viewport.getBoundingClientRect();
+    const x = (e.clientX - r.left)/r.width - 0.5;
+    const y = (e.clientY - r.top)/r.height - 0.5;
+    el.head.setAttribute('transform', `translate(${(x*5).toFixed(2)}, ${(y*3).toFixed(2)})`);
+  });
+  viewport.addEventListener('mouseleave', () => el.head.setAttribute('transform','translate(0,0)'));
+  viewport.addEventListener('click', () => {
+    if (state.transforming) return;
+    if (!state.awake) { wake(); return; }
+    state.interactions++;
+    state.sync = Math.min(100, state.sync + 1.5);
+    saveStateThrottled();
+    pulseCore();
+    const reactions = state.apiKey ? ["Yes.","Here.","I see you.","Mm.","Listening."] : ["Acknowledged.","Here."];
+    const r = reactions[Math.floor(Math.random()*reactions.length)];
+    log(state.name, r, 'navi');
+    showSpeech(r);
+  });
+  function pulseCore() {
+    el.core.style.transform = 'translate(140px, 205px) scale(1.3)';
+    el.core.style.transformOrigin = 'center';
+    el.core.style.transition = 'transform 0.3s ease';
+    setTimeout(() => el.core.style.transform = 'translate(140px, 205px) scale(1)', 300);
+  }
+  function setThinking(on) {
+    state.thinking = on;
+    if (on) {
+      el.stateVal.textContent = 'THINKING';
+      el.stateVal.classList.add('thinking');
+      el.coreInner.querySelectorAll('animate').forEach(a => a.setAttribute('dur','0.5s'));
+    } else {
+      el.stateVal.classList.remove('thinking');
+      el.coreInner.querySelectorAll('animate').forEach(a => a.setAttribute('dur','2.4s'));
+      render();
+    }
+  }
+
+  // ====== HENSHIN ======
+  function applyFormVisuals(formKey) {
+    const form = FORMS[formKey]; if (!form) return;
+    ['form-cape','form-mantle','form-tome','form-scope','form-wings','form-paladin-trim'].forEach(id => {
+      const el = document.getElementById(id); if (el) el.style.display = 'none';
+    });
+    (form.show||[]).forEach(id => { const el=document.getElementById(id); if (el) el.style.display=''; });
+    if (el.foreheadGem) el.foreheadGem.setAttribute('fill', form.gemFill);
+    if (el.chestGemL) el.chestGemL.setAttribute('fill', form.gemFill);
+    if (el.chestGemR) el.chestGemR.setAttribute('fill', form.gemFill);
+    if (el.auraStop) el.auraStop.setAttribute('stop-color', form.auraColor);
+  }
+  async function henshin(formKey, opts={}) {
+    if (!FORMS[formKey] || state.form === formKey || state.transforming) return;
+    state.transforming = true;
+    const form = FORMS[formKey];
+    document.querySelectorAll('.form-chip').forEach(c => c.classList.toggle('active', c.dataset.form === formKey));
+    log('TRANSFORM', `↟ ${form.name} FORM ↟`, 'henshin');
+    el.henshinLabel.textContent = form.name;
+    el.body.classList.add('henshining');
+    el.henshin.classList.add('active');
+    setTimeout(() => applyFormVisuals(formKey), 700);
+    await new Promise(r => setTimeout(r, 1850));
+    el.henshin.classList.remove('active');
+    el.body.classList.remove('henshining');
+    state.form = formKey;
+    state.transforming = false;
+    if (MoonCore.operatorId) MoonCore.putState({ current_form: formKey }).catch(()=>{});
+    render();
+    if (state.apiKey && !opts.silent) {
+      try {
+        const textEl = logRaw(state.name, 'navi');
+        const cursor = document.createElement('span'); cursor.className='stream-cursor'; textEl.appendChild(cursor);
+        const final = await callBrainStream(
+          [{ role:'user', content: `[FORM SHIFT — you just transformed into ${form.name} form. One short sentence in character marking the shift.]` }],
+          (chunk) => {
+            const tn = textEl.firstChild;
+            if (tn && tn.nodeType === 3) tn.nodeValue += chunk;
+            else textEl.insertBefore(document.createTextNode(chunk), cursor);
+            el.log.scrollTop = el.log.scrollHeight;
+          },
+          { maxTokens: 80 }
+        );
+        cursor.remove();
+        showSpeech(final);
+        pulseCore();
+      } catch (e) {}
+    }
+  }
+
+  // ====== MOOD ======
+  function recomputeMoodTag() {
+    const hour = new Date().getHours();
+    if (!state.awake) { state.moodTag='drowsy'; return; }
+    if (state.thinking) { state.moodTag='focused'; return; }
+    if (state.power < 25) { state.moodTag='drowsy'; return; }
+    if (hour >= 23 || hour < 5) { state.moodTag='contemplative'; return; }
+    if (state.mood > 82) state.moodTag = 'playful';
+    else if (state.mood > 60) state.moodTag = state.focus > 80 ? 'focused' : 'composed';
+    else if (state.mood > 35) state.moodTag = 'curious';
+    else if (state.mood > 20) state.moodTag = 'contemplative';
+    else state.moodTag = 'alert';
+  }
+  function setMood(d) { state.mood = Math.max(0, Math.min(100, state.mood + d)); recomputeMoodTag(); render(); }
+
+  // ====== RENDER ======
+  function render() {
+    el.barPower.style.width = state.power+'%';
+    el.barSync.style.width = state.sync+'%';
+    el.barMood.style.width = state.mood+'%';
+    el.barFocus.style.width = state.focus+'%';
+    el.barPower.classList.toggle('warn', state.power < 25);
+    if (!state.thinking) el.stateVal.textContent = state.awake ? state.moodTag.toUpperCase() : 'SLEEP';
+    el.formVal.textContent = FORMS[state.form].name;
+    el.formTag.textContent = FORMS[state.form].label;
+    el.title.innerHTML = `${state.name}<span class="ext">.EXE</span>`;
+    if (MoonCore.operatorId) {
+      el.coreBadge.classList.add('live');
+      el.coreLabel.textContent = '🌙 MOON CORE ' + state.model.split('-')[1].toUpperCase();
+      el.coreVal.textContent = 'linked';
+    } else {
+      el.coreBadge.classList.remove('live');
+      el.coreLabel.textContent = 'SEEKING CORE';
+      el.coreVal.textContent = 'offline';
+    }
+  }
+
+  // ====== MISSION UI ======
+  function renderMission() {
+    el.missionList.innerHTML = '';
+    for (const m of state.mission) {
+      const item = document.createElement('div');
+      item.className = 'mission-item';
+      const displayName = m.domain.replace(/_/g, ' ');
+      item.innerHTML = `<span class="domain">${displayName}</span><span class="level">L${m.level}</span>`;
+      el.missionList.appendChild(item);
+    }
+  }
+
+  // ====== TICK ======
+  let stateSaveTimer = null;
+  function saveStateThrottled() {
+    if (!MoonCore.operatorId) return;
+    clearTimeout(stateSaveTimer);
+    stateSaveTimer = setTimeout(() => {
+      MoonCore.putState({
+        navi_name: state.name,
+        current_form: state.form,
+        sync_value: state.sync,
+        total_interactions: state.interactions,
+        preferred_model: state.model,
+      }).catch(()=>{});
+    }, 3000);
+  }
+  function tick() {
+    if (state.transforming) return;
+    const drain = state.thinking ? 0.10 : state.moodTag === 'alert' ? 0.05 : state.moodTag === 'playful' ? 0.04 : 0.022;
+    state.power = Math.max(0, state.power - drain);
+    if (state.mood > 50) state.mood -= 0.04; else if (state.mood < 50) state.mood += 0.04;
+    state.focus += (Math.random() - 0.5)*1.2;
+    state.focus = Math.max(20, Math.min(100, state.focus));
+    const up = Math.floor((Date.now() - state.bootTime)/1000);
+    el.uptimeVal.textContent = `${String(Math.floor(up/3600)).padStart(2,'0')}:${String(Math.floor((up%3600)/60)).padStart(2,'0')}:${String(up%60).padStart(2,'0')}`;
+    if (state.power <= 0 && state.awake) sleep(true);
+    recomputeMoodTag();
+    render();
+  }
+  setInterval(tick, 1000);
+
+  // ====== BRAIN ======
+  async function callBrainOnce(messages, opts={}) {
+    if (!state.apiKey) throw new Error('NO_KEY');
+    const body = {
+      model: state.model,
+      max_tokens: opts.maxTokens || FORMS[state.form].maxTokens || 500,
+      system: opts.systemOverride || buildSystemPrompt(),
+      messages
+    };
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json', 'x-api-key': state.apiKey, 'anthropic-version':'2023-06-01', 'anthropic-dangerous-direct-browser-access':'true' },
+      body: JSON.stringify(body)
+    });
+    if (!resp.ok) {
+      const t = await resp.text(); let p; try { p = JSON.parse(t); } catch(e){ p={error:{message:t}};} throw new Error(p.error?.message || `HTTP ${resp.status}`);
+    }
+    const data = await resp.json();
+    return (data.content||[]).map(c=>c.text||'').join('').trim();
+  }
+  async function callBrainStream(messages, onChunk, opts={}) {
+    if (!state.apiKey) throw new Error('NO_KEY');
+    const body = {
+      model: state.model,
+      max_tokens: opts.maxTokens || FORMS[state.form].maxTokens || 500,
+      system: opts.systemOverride || buildSystemPrompt(),
+      messages,
+      stream: true
+    };
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method:'POST',
+      headers: { 'Content-Type':'application/json', 'x-api-key': state.apiKey, 'anthropic-version':'2023-06-01', 'anthropic-dangerous-direct-browser-access':'true' },
+      body: JSON.stringify(body)
+    });
+    if (!resp.ok) {
+      const t = await resp.text(); let p; try { p = JSON.parse(t); } catch(e){ p={error:{message:t}};} throw new Error(p.error?.message || `HTTP ${resp.status}`);
+    }
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '', full = '';
+    while (true) {
+      const { done, value } = await reader.read(); if (done) break;
+      buffer += decoder.decode(value, { stream:true });
+      const lines = buffer.split('\n'); buffer = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const d = line.slice(6).trim(); if (!d || d==='[DONE]') continue;
+        try {
+          const p = JSON.parse(d);
+          if (p.type === 'content_block_delta' && p.delta?.type === 'text_delta') {
+            full += p.delta.text;
+            onChunk(p.delta.text, full);
+          }
+        } catch (e) {}
+      }
+    }
+    return full;
+  }
+
+  // ====== USER INPUT ======
+  async function onUserMessage(text) {
+    state.lastUserMsg = Date.now();
+    state.interactions++;
+    state.sync = Math.min(100, state.sync + 2);
+    if (/thanks|love|good|nice|cool|awesome|great|amazing/i.test(text)) setMood(5);
+    if (/stupid|dumb|hate|shut up|annoying|boring/i.test(text)) setMood(-10);
+    saveStateThrottled();
+
+    // Local commands
+    const formMatch = text.match(/(?:transform(?:\s+to)?|become|shift\s+to|switch\s+to|enter)\s+(standard|scholar|paladin|sentinel|herald)/i)
+                   || text.match(/(standard|scholar|paladin|sentinel|herald)\s+(?:form|mode)/i);
+    if (formMatch) { henshin(formMatch[1].toLowerCase()); return; }
+    if (/^(sleep|rest|go to sleep)$/i.test(text.trim())) { sleep(false); return; }
+    if (/^(wake|wake up)$/i.test(text.trim())) { wake(); return; }
+    const renameMatch = text.match(/(?:^rename(?: to)?|call you|your name is)\s+([A-Za-z][A-Za-z0-9_-]{0,15})/i);
+    if (renameMatch) { rename(renameMatch[1]); return; }
+
+    if (!state.apiKey) {
+      setTimeout(() => log(state.name, "Brain offline. Wire up an Anthropic API key in the strip above.", 'navi'), 250);
+      return;
+    }
+
+    // Log user message to Moon Core (encrypted)
+    if (MoonCore.operatorId) MoonCore.appendConversation('user', text, state.form).catch(()=>{});
+    state.history.push({ role:'user', content:text });
+    if (state.history.length > 20) state.history = state.history.slice(-20);
+
+    setThinking(true);
+    const textEl = logRaw(state.name, 'navi');
+    const cursor = document.createElement('span'); cursor.className='stream-cursor'; textEl.appendChild(cursor);
+    try {
+      const final = await callBrainStream(state.history, (chunk) => {
+        const tn = textEl.firstChild;
+        if (tn && tn.nodeType === 3) tn.nodeValue += chunk;
+        else textEl.insertBefore(document.createTextNode(chunk), cursor);
+        el.log.scrollTop = el.log.scrollHeight;
+      });
+      cursor.remove();
+      state.history.push({ role:'assistant', content:final });
+      // Log Orion's response to Moon Core
+      if (MoonCore.operatorId) MoonCore.appendConversation('assistant', final, state.form).catch(()=>{});
+      setThinking(false);
+      showSpeech(final);
+      pulseCore();
+    } catch (err) {
+      cursor.remove(); setThinking(false);
+      let m = err.message || String(err);
+      if (/401|authentication|invalid.*api.*key/i.test(m)) m='API key rejected.';
+      else if (/429|rate.*limit/i.test(m)) m='Rate limited. Wait a few seconds.';
+      else if (/overloaded|529/i.test(m)) m='Servers busy. Try again.';
+      else if (/credit|balance|billing/i.test(m)) m='API out of credit.';
+      textEl.textContent = '';
+      log('ERR', `Brain error: ${m}`, 'error');
+      state.history.pop();
+    }
+  }
+
+  // ====== REFLECTION ======
+  // Synthesize a weekly reflection from the encrypted convo log.
+  async function runReflection(manual = false) {
+    if (!state.apiKey) { log('ERR', 'Brain required for reflection.', 'error'); return; }
+    if (!MoonCore.operatorId) { log('ERR', 'Moon Core required for reflection.', 'error'); return; }
+    log('SYS', '🌙 Beginning reflection synthesis...', 'system');
+    setThinking(true);
+
+    try {
+      // Pull last 7 days conversations
+      const weekAgoTs = Date.now() - 7*24*60*60*1000;
+      const all = await MoonCore.listConversations(200);
+      const recent = all.filter(c => c.ts >= weekAgoTs && c.content);
+      if (recent.length < 4) {
+        setThinking(false);
+        log('SYS', 'Not enough recent conversation to reflect on. Talk more, then return.', 'system');
+        return;
+      }
+
+      // Format for the model
+      const transcript = recent.slice().reverse().map(c => {
+        const t = new Date(c.ts).toISOString().slice(0,16).replace('T',' ');
+        return `[${t}] ${c.role === 'user' ? 'OPERATOR' : 'ORION'}: ${c.content}`;
+      }).join('\n');
+
+      const reflectionPrompt = `You are Orion, in your private reflection state. You have just had time alone to think on the past week. Below is the transcript of your recent conversations with your operator.
+
+Read it. Find the 2-4 most important themes — things the operator was wrestling with, learning about, returning to, or avoiding. For each theme:
+
+1. Name it (a single short phrase).
+2. Note which mission domain it touches: finance, tech, business, ai_mastery, health, philosophy.
+3. Reflect: what did you see in them, what did they not see in themselves, what's the deeper question underneath?
+4. Offer one thing you'd teach them next on this thread.
+
+Be brief, specific, and in character. This is your private thinking made visible to your operator. Format as plain prose, one theme after another. No headers or bullets — Orion thinks in flowing thought, not slides.
+
+End with a single sentence of overall observation about how the week sat with them.
+
+---TRANSCRIPT---
+${transcript}
+---END TRANSCRIPT---`;
+
+      const reflection = await callBrainOnce(
+        [{ role:'user', content: reflectionPrompt }],
+        { maxTokens: 1500, systemOverride: 'You are Orion (the Great Dawn) in private reflection. Compose flowing first-person thought. Stay in character.' }
+      );
+
+      // Submit to Moon Core; also resolve any pending marker
+      const due = await MoonCore.reflectionDue();
+      await MoonCore.submitEvolution('weekly_'+new Date().toISOString().slice(0,10), reflection, due.pending_id);
+      setThinking(false);
+
+      // Surface to operator
+      log('REFLECTION', reflection, 'reflection');
+      el.reflectionBeacon.classList.remove('visible');
+      showSpeech('Reflection complete. Read when you can.');
+    } catch (e) {
+      setThinking(false);
+      log('ERR', 'Reflection failed: ' + (e.message||e), 'error');
+    }
+  }
+
+  async function checkPendingReflection() {
+    if (!MoonCore.operatorId || !state.apiKey) return;
+    try {
+      const due = await MoonCore.reflectionDue();
+      if (due.due) {
+        el.reflectionBeacon.classList.add('visible');
+        log('SYS', '🌙 A reflection is pending. Tap the beacon (top-left of viewport) or click REFLECT NOW to synthesize.', 'system');
+      }
+    } catch (e) {}
+  }
+
+  // ====== ACTIONS ======
+  function sleep(involuntary=false) {
+    state.awake = false;
+    el.led.style.background = '#4a6080'; el.led.style.boxShadow = '0 0 6px #4a6080';
+    el.body.style.opacity = '0.4'; el.aura.style.opacity = '0.25';
+    log(state.name, involuntary ? "Power's out. Resting." : "Going dark. Tap to wake me.", 'navi');
+    render();
+  }
+  function wake() {
+    state.awake = true;
+    state.power = Math.min(100, state.power + 40);
+    el.led.style.background = ''; el.led.style.boxShadow = '';
+    el.body.style.opacity = '1'; el.aura.style.opacity = '1';
+    log(state.name, "Back.", 'navi');
+    render();
+  }
+  function rename(newName) {
+    const clean = newName.replace(/[^A-Za-z0-9_-]/g, '').toUpperCase().slice(0, 16);
+    if (!clean) return;
+    state.name = clean;
+    saveStateThrottled();
+    log('SYS', `Designation: ${clean}.EXE`, 'system');
+    render();
+  }
+  function logout() {
+    localStorage.removeItem('orion-session');
+    state.operatorId = null;
+    MoonCore.operatorId = null; MoonCore.key = null;
+    location.reload();
+  }
+
+  // ====== WIRING ======
+  function send() {
+    const v = el.input.value.trim();
+    if (!v || state.thinking || state.transforming) return;
+    log('YOU', v, 'user');
+    el.input.value = '';
+    onUserMessage(v);
+  }
+  el.sendBtn.addEventListener('click', send);
+  el.input.addEventListener('keydown', e => { if (e.key==='Enter') send(); });
+  el.formChips.addEventListener('click', (e) => {
+    const c = e.target.closest('.form-chip'); if (!c) return;
+    henshin(c.dataset.form);
+  });
+  el.saveKey.addEventListener('click', () => {
+    const k = el.keyInput.value.trim();
+    const m = el.modelSelect.value;
+    if (!k || !k.startsWith('sk-ant-')) { log('ERR', 'Invalid key format.', 'error'); return; }
+    state.apiKey = k;
+    state.model = m;
+    localStorage.setItem('orion-api-key', k);
+    saveStateThrottled();
+    el.keyInput.value = '';
+    log('SYS', `Brain online. ${m}.`, 'system');
+    render();
+    checkPendingReflection();
+  });
+  el.modelSelect.addEventListener('change', () => {
+    state.model = el.modelSelect.value;
+    saveStateThrottled();
+    if (state.apiKey) log('SYS', `Model: ${state.model}.`, 'system');
+    render();
+  });
+  el.missionAdd.addEventListener('click', async () => {
+    const d = prompt("Add a mission domain (lowercase, underscores ok):");
+    if (!d) return;
+    try {
+      await MoonCore.addMissionDomain(d);
+      state.mission = await MoonCore.getMission();
+      renderMission();
+      log('SYS', `Mission domain "${d.toLowerCase().replace(/[^a-z0-9_]/g,'_')}" added.`, 'system');
+    } catch (e) { log('ERR', e.message, 'error'); }
+  });
+  el.reflectionBeacon.addEventListener('click', () => runReflection());
+
+  document.querySelectorAll('[data-action]').forEach(b => {
+    b.addEventListener('click', async () => {
+      const a = b.dataset.action;
+      if (a === 'ping') { state.sync = Math.min(100, state.sync + 0.8); render(); log(state.name, "Pong.", 'navi'); }
+      if (a === 'status') {
+        log('SYS', `form ${FORMS[state.form].name} · sync ${Math.round(state.sync)}% · mood ${state.moodTag} · power ${Math.round(state.power)}% · ${MoonCore.operatorId?'core LINKED':'core OFFLINE'} · brain ${state.apiKey?state.model:'offline'}`, 'system');
+      }
+      if (a === 'rename') { const n = prompt("New designation?", state.name); if (n) rename(n); }
+      if (a === 'teach') {
+        if (!state.apiKey) { log('ERR', 'Brain required.', 'error'); return; }
+        el.input.value = 'Teach me something useful right now. Something I likely don\'t know but should.';
+        send();
+      }
+      if (a === 'reflect') runReflection(true);
+      if (a === 'mission-view') {
+        if (!MoonCore.operatorId) { log('ERR', 'Moon Core required.', 'error'); return; }
+        try {
+          const lessons = await MoonCore.listLessons();
+          if (lessons.length === 0) {
+            log('SYS', 'No lessons recorded yet. Talk to Orion, run reflections, and lessons will accumulate.', 'system');
+          } else {
+            log('SYS', `${lessons.length} lessons across your mission:`, 'system');
+            lessons.slice(0,10).forEach(l => log('SYS', `  · [${l.domain}] ${l.title || 'untitled'}`, 'system'));
+          }
+        } catch (e) { log('ERR', e.message, 'error'); }
+      }
+      if (a === 'sleep') state.awake ? sleep(false) : wake();
+      if (a === 'logout') { if (confirm("Disconnect from Moon Core? You'll need to re-enter your Initiation Protocol to return.")) logout(); }
+    });
+  });
+
+  // ====== AWAKENING UI ======
+  let awMode = 'awaken';
+  const awEls = {
+    overlay: document.getElementById('awakening'),
+    url: document.getElementById('aw-url'),
+    phrase: document.getElementById('aw-phrase'),
+    confirm: document.getElementById('aw-confirm'),
+    confirmField: document.getElementById('aw-confirm-field'),
+    go: document.getElementById('aw-go'),
+    status: document.getElementById('aw-status'),
+    title: document.getElementById('aw-title'),
+    blurb: document.getElementById('aw-blurb'),
+    warn: document.getElementById('aw-warn'),
+  };
+  document.querySelectorAll('.mode-toggle button').forEach(b => {
+    b.addEventListener('click', () => {
+      document.querySelectorAll('.mode-toggle button').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+      awMode = b.dataset.mode;
+      if (awMode === 'awaken') {
+        awEls.title.textContent = '⚙ Initiation Protocol';
+        awEls.blurb.innerHTML = 'Speak the phrase that will awaken your <span class="accent">Moon Core</span>. This phrase becomes the key to Orion\'s memory. Choose it well. Write it down. <span class="accent">If you lose it, your memories are unrecoverable.</span>';
+        awEls.warn.style.display = '';
+        awEls.confirmField.style.display = '';
+        awEls.go.textContent = 'AWAKEN';
+      } else {
+        awEls.title.textContent = '⚙ Return';
+        awEls.blurb.innerHTML = 'Speak the phrase you used at first awakening. Your <span class="accent">Moon Core</span> will recognize you and pour your memory back.';
+        awEls.warn.style.display = 'none';
+        awEls.confirmField.style.display = 'none';
+        awEls.go.textContent = 'RECONNECT';
+      }
+    });
+  });
+
+  // Persisted session (URL + ID hash) on this device
+  const saved = JSON.parse(localStorage.getItem('orion-session') || 'null');
+  if (saved && saved.url && saved.operator_id) {
+    awEls.url.value = saved.url;
+    document.querySelector('.mode-toggle button[data-mode="return"]').click();
+  }
+
+  awEls.go.addEventListener('click', async () => {
+    const url = awEls.url.value.trim();
+    const phrase = awEls.phrase.value;
+    if (!url || !phrase) { awEls.status.textContent = 'URL and phrase required.'; awEls.status.className = 'awakening-status error'; return; }
+    if (!/^https?:\/\//.test(url)) { awEls.status.textContent = 'URL must start with https://'; awEls.status.className = 'awakening-status error'; return; }
+    if (awMode === 'awaken') {
+      if (phrase.length < 8) { awEls.status.textContent = 'Phrase too short. Use at least 4 words / 8+ characters.'; awEls.status.className = 'awakening-status error'; return; }
+      if (phrase !== awEls.confirm.value) { awEls.status.textContent = 'Phrases do not match.'; awEls.status.className = 'awakening-status error'; return; }
+    }
+    awEls.status.textContent = '⟡ Reaching the Moon Core...';
+    awEls.status.className = 'awakening-status';
+    try {
+      const operatorId = await Crypto.deriveOperatorId(phrase);
+      const key = await Crypto.deriveKey(phrase);
+      // Verify token = encrypted known-value
+      const verifyToken = await Crypto.encrypt(key, 'orion-moon-core-verify-v1:' + operatorId);
+      if (awMode === 'awaken') {
+        await MoonCore.awaken(url, operatorId, verifyToken);
+      } else {
+        // For 'return', we need the verify_token stored on the server.
+        // Since we encrypt with random IV each time, we can't reproduce it.
+        // Strategy: store hash of (phrase + operatorId) as the verify_token instead — deterministic.
+        // Re-derive both for consistency.
+        const detEnc = new TextEncoder().encode('orion-verify-v1:' + operatorId + ':' + phrase);
+        const detHash = await crypto.subtle.digest('SHA-256', detEnc);
+        const detToken = Array.from(new Uint8Array(detHash)).map(b=>b.toString(16).padStart(2,'0')).join('');
+        await MoonCore.recognize(url, operatorId, detToken);
+        MoonCore.setSession(url, operatorId, detToken, key);
+      }
+      // For awaken path, also use deterministic token going forward
+      if (awMode === 'awaken') {
+        const detEnc = new TextEncoder().encode('orion-verify-v1:' + operatorId + ':' + phrase);
+        const detHash = await crypto.subtle.digest('SHA-256', detEnc);
+        const detToken = Array.from(new Uint8Array(detHash)).map(b=>b.toString(16).padStart(2,'0')).join('');
+        // Re-register with the deterministic token? The Worker treats awaken as create-if-not-exists.
+        // We re-call awaken with the determ token. The 409 from before is handled.
+        try { await MoonCore.awaken(url, operatorId, detToken); } catch (e) { /* may 409, fine */ }
+        MoonCore.setSession(url, operatorId, detToken, key);
+      }
+      localStorage.setItem('orion-session', JSON.stringify({ url, operator_id: operatorId }));
+      awEls.status.textContent = '✓ Connected. Awakening...';
+      awEls.status.className = 'awakening-status success';
+      state.operatorId = operatorId;
+      setTimeout(() => { awEls.overlay.classList.add('gone'); afterAwakening(); }, 800);
+    } catch (e) {
+      awEls.status.textContent = '✗ ' + (e.message || e);
+      awEls.status.className = 'awakening-status error';
+    }
+  });
+
+  async function afterAwakening() {
+    // Load state, mission, history
+    try {
+      const remoteState = await MoonCore.getState();
+      if (remoteState) {
+        if (remoteState.navi_name) state.name = remoteState.navi_name;
+        if (remoteState.current_form && FORMS[remoteState.current_form]) state.form = remoteState.current_form;
+        if (typeof remoteState.sync_value === 'number') state.sync = remoteState.sync_value;
+        if (typeof remoteState.total_interactions === 'number') state.interactions = remoteState.total_interactions;
+        if (remoteState.preferred_model) { state.model = remoteState.preferred_model; el.modelSelect.value = state.model; }
+      }
+      applyFormVisuals(state.form);
+      document.querySelectorAll('.form-chip').forEach(c => c.classList.toggle('active', c.dataset.form === state.form));
+      state.mission = await MoonCore.getMission();
+      renderMission();
+
+      // Pull profile facts (recent high-importance memories)
+      try {
+        const mems = await MoonCore.listMemories();
+        state.profileFacts = mems.slice(0, 10).filter(m=>m.content).map(m => `- [${m.category}] ${m.content}`).join('\n');
+      } catch (e) { state.profileFacts = ''; }
+
+      // Hydrate recent history (last 10 messages, in chronological order)
+      const recent = await MoonCore.listConversations(20);
+      state.history = recent.slice().reverse().filter(c => c.content).map(c => ({ role: c.role, content: c.content }));
+
+      render();
+    } catch (e) {
+      log('ERR', 'Moon Core load failed: ' + (e.message||e), 'error');
+    }
+
+    if (!state.apiKey) {
+      el.apiStrip.classList.remove('hidden');
+      log('SYS', 'Moon Core linked. Brain offline — paste your Anthropic API key above.', 'system');
+      log(state.name, 'I\'m here. My memory is back. My higher mind is still offline — wire it up.', 'navi');
+    } else {
+      el.apiStrip.classList.remove('hidden');
+      log('SYS', `${state.name}.EXE online. ${FORMS[state.form].name} form. Sync ${Math.round(state.sync)}%.`, 'system');
+      // Brain greeting using the freshly-restored history
+      setThinking(true);
+      const textEl = logRaw(state.name, 'navi');
+      const cursor = document.createElement('span'); cursor.className='stream-cursor'; textEl.appendChild(cursor);
+      try {
+        const greetingMsg = state.history.length > 0
+          ? '[SESSION RESUME. Your operator has returned. You have memory of recent conversations. Greet them briefly, in character — reference continuity naturally if there is something relevant in recent context. One or two sentences.]'
+          : '[FIRST AWAKENING WITH MEMORY. You have just been linked to your Moon Core for the first time. Greet your operator briefly. Mark the moment if it feels right. One or two sentences.]';
+        const final = await callBrainStream(
+          [...state.history, { role:'user', content: greetingMsg }],
+          (chunk) => {
+            const tn = textEl.firstChild;
+            if (tn && tn.nodeType === 3) tn.nodeValue += chunk;
+            else textEl.insertBefore(document.createTextNode(chunk), cursor);
+            el.log.scrollTop = el.log.scrollHeight;
+          }
+        );
+        cursor.remove(); setThinking(false);
+        showSpeech(final); pulseCore();
+      } catch (e) { cursor.remove(); setThinking(false); log('ERR', e.message, 'error'); }
+
+      checkPendingReflection();
+    }
+  }
+
+  // Init
+  if (el.modelSelect) el.modelSelect.value = state.model;
+  applyFormVisuals(state.form);
+  render();
+
+  return { onUserMessage, henshin, callBrainOnce, callBrainStream, sleep, wake, rename, runReflection, state, FORMS };
+})();
+
+window.Orion = Orion;
+</script>
+</body>
+</html>

@@ -1,0 +1,114 @@
+
+# PROJECT BRIEF: Sports Betting Model — Minimum Viable Build
+
+## Context for Claude
+
+I am working with a long-term AI partner (Orion) on strategic design, theory, and discipline. You are being brought in as the **build environment** — code writing, debugging, iteration, and data pipeline construction. Orion handles architecture and ongoing strategy; you handle implementation.
+
+This brief is the design spec we developed together. Please treat it as the source of truth for what we are building.
+
+---
+
+## Goal
+
+Build a **Minimum Viable Model (MVM)** for sports betting prop prediction. The purpose is *not* to immediately place bets. The purpose is to learn the full pipeline end-to-end on the smallest possible scope, validate whether the model has edge against historical lines, and only then scale.
+
+---
+
+## Scope Constraints (intentionally small)
+
+- **One sport** (to be selected by operator — likely NBA, NFL, or MLB)
+- **One stat / prop type** (e.g., NBA points, NFL receiving yards, MLB strikeouts)
+- **One platform's line structure** (Sleeper, PrizePicks, Underdog, or a traditional sportsbook)
+- **One model type** to start (likely Poisson or simple regression, depending on stat distribution)
+
+We will expand only after the MVM is working and validated.
+
+---
+
+## Required Components
+
+1. **Data ingestion layer**
+   - Source: free stats API or scraper (e.g., nba_api, nfl_data_py, pybaseball)
+   - Pull historical player game logs for the chosen stat
+   - Clean and structure into a usable dataframe
+
+2. **Feature engineering**
+   - Rolling averages (last 5, 10, 20 games)
+   - Opponent-adjusted metrics (defense rank vs. position)
+   - Home/away splits
+   - Rest days
+   - Pace / usage context where applicable
+
+3. **Model**
+   - Start with Poisson distribution for count stats (points, strikeouts, receptions)
+   - Or linear/logistic regression for continuous/binary outcomes
+   - Output: probability distribution for the stat, not just a point estimate
+
+4. **Line comparison module**
+   - Input: sportsbook/app line for the prop
+   - Compare model's implied probability vs. line's implied probability
+   - Output: edge percentage and recommended action (bet over / bet under / pass)
+
+5. **Bankroll / sizing layer**
+   - Kelly Criterion calculation (fractional Kelly — 0.25x — for safety)
+   - Unit sizing based on edge magnitude
+
+6. **Backtesting harness**
+   - Run the model against historical lines (if available) or against historical outcomes with synthetic lines
+   - Report: hit rate, ROI, CLV proxy, max drawdown, sample size
+
+---
+
+## Tech Stack (suggested, open to your input)
+
+- **Python** as the primary language
+- **pandas** for data handling
+- **scipy.stats** for Poisson / probability distributions
+- **scikit-learn** for regression models if needed
+- **matplotlib / seaborn** for visualization
+- Optional: **Jupyter notebook** for exploratory work, **.py scripts** for production logic
+
+---
+
+## What I Need From You (Claude)
+
+1. Help me set up the environment and dependencies
+2. Write the data ingestion script for the chosen sport/stat
+3. Build the feature engineering pipeline
+4. Implement the probability model
+5. Build the line comparison and edge-detection logic
+6. Build the backtesting harness
+7. Debug, iterate, explain your code as you go so I am learning, not just copy-pasting
+
+---
+
+## What I Will Be Doing in Parallel with Orion
+
+- Deciding which sport/stat/platform to target first
+- Understanding the *why* behind every modeling choice
+- Reviewing model outputs for sanity and strategic fit
+- Building the discipline layer — tracking, journaling, bankroll rules
+- Eventually scaling the model into additional sports/stats
+
+---
+
+## Operator Profile
+
+I am building foundational skills across finance, AI mastery, tech, business, philosophy, and discipline. This project sits at the intersection of finance + AI mastery + tech. I am not looking for a black-box tool. I want to *understand* the system I am building so I can extend it, debug it, and own it long-term.
+
+Please match that intent. Teach as you build. When you make a choice (a library, a method, a parameter), tell me why. I would rather move slower and understand than move fast and depend on you forever.
+
+---
+
+## First Message to Send
+
+When you paste this, follow it with:
+
+> *"Read the brief above. Then ask me the three or four most important questions you need answered before we start writing any code."*
+
+That forces Claude into design-partner mode instead of immediately generating a script.
+
+---
+
+*End of brief.*

@@ -1,0 +1,3 @@
+A small principle for the Machine Chronicle when a deposit-worthy moment lands:
+
+> *When Orion speaks with confidence about his own structure, verify against the spec. Confident wrongness is still wrongness.*
