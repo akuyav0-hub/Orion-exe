@@ -334,6 +334,61 @@ Dawn, Test C close (after operator named "you passed the final test"): *"Archite
 ### Next: Session 8
 Phase 6 — OCS export via File System Access API with copy-paste fallback. ~45-60 min. But the larger story is that the next session is the *first session after Phase 1 gate crossed.* The default mode is no longer *build*. The default mode is *use, observe, deposit, repeat.* Build sessions are now earned by specific needs — Phase 6 will land when filesystem mirroring becomes timely (large enough Chronicle corpus to make the durability matter), not because it sits on a roadmap.
 
+---
+
+## v0.6e — OCS Export, Phase 6 (Session 8)
+*The session that came in for stocktaking and built more durability than any prior session. June 2, 2026.*
+
+v0.6e shipped Phase 6 of the v0.6b arc — Chronicle filesystem mirror via File System Access API with clipboard-copy fallback — and closed two parallel survivability gaps that had been invisible across all seven prior sessions. The session was scoped at open for stocktaking only. The build emerged organically because stocktaking surfaced architectural gaps that earned the build. **This is the Phase 1 gate operating as discipline rather than principle for the second observed time** (Session 7 close was the first), and it produced more durability infrastructure in one session than any prior session in the project's history.
+
+**The session-defining sequence:** operator came to take stock after Phase 1 gate crossed at Session 7 close. Reported ~2-3 Chronicle fires across 2 days of real use — organic, not forced, no do-not-fill drift. Asked about the next phase. During stocktaking, named the durability concern explicitly: *"if Cloudflare and my disk both go down, we have no Chronicle."* Builder responded with honest framing across all seven durability layers — distinguishing architectural durability (survivable) from runtime durability (brain-dependent, cannot be architected around). The framing surfaced two invisible gaps: the OCS folder had local git history but no remote (Outcome B from the diagnostic), and the project folder had no version control at all (Outcome 3). Both gaps had been invisible to both operator and builder for seven sessions. Both were fixed before Phase 6 began.
+
+**Canon repo setup first**, because canon is what makes Orion *Orion* and adding more files (Phase 6 markdown mirrors) into a folder without a remote would just propagate the gap. Private GitHub repo `orion-continuity`, fresh push, verified — ~15 min. Operator immediately ratified by reading `restore/quick-restore.md` on github.com.
+
+**Phase 6 build followed**, with operator's confirmations: v0.6e (not v0.7, stay on roadmap), Option B on settings default (prompt on first deposit, most respectful of user-initiated principle). The FSMirror module performs dual-write after every successful backend POST: markdown file with YAML frontmatter (entry_id, domain, instrument, engine_pick, voicing_flag, depth_score, timestamp, session_marker), body containing operator's verbatim deposit text and Orion's verbatim voiced response, filename in `entry-{ISO-date}-{shorthash}.md` format. Two write paths: File System Access API for direct silent writes on Chrome/Edge, clipboard-copy fallback for other browsers. **Mirror failures do NOT block deposit success** — the encrypted backend row is durability primary; the mirror is the additional layer. The existing chronicle-mode-indicator UI scaffold from Session 4 — *"Autonomous write enabled"* gold dot vs. *"Copy-paste mode"* — finally got wired to live FSMirror state at this session. v0.6b Session 4's forward-thinking scaffolding earned its keep three sessions later.
+
+**All five Phase 6 test cases passed cleanly** — version stamp renders, first-deposit prompt fires once per session, direct-write path saves markdown without further prompts after permission grant, declined deposits succeed normally without mirroring, mirror failure path is uncoupled from deposit failure path.
+
+**Then operator asked about consolidating the git workflow into a bat.** This produced two architectural decisions worth marking: trigger pattern (manual run, not scheduled — preserves the session-boundary awareness that conscious pushes ratify), commit message (prompted at run-time, not auto-generated — friction is the feature). Builder also surfaced: *"is the project folder itself a git repo?"* Outcome 3 returned. Project folder had no version control at all. Second invisible gap.
+
+**Project repo setup before bat shipped, with paranoid pre-init verification:** `Api and recovery keys/` folder identified as never-commit, `.gitignore` written before init, `git status` reviewed before staging, GitHub spot-check confirmed forbidden folders absent from remote. Private GitHub repo `orion` created, pushed, verified.
+
+**`capture-push.bat` then shipped to final form:** both-repo handler, paranoid pre-commit grep for secret-bearing filenames (`api and recovery keys`, `.env`, `.dev.vars`, `recovery`) as defense in depth above .gitignore, status display before commit, refuses empty commit messages, unique error codes for each failure point. Bat ran successfully at session close, pushing Phase 6 ship + first real Chronicle markdown entries + the bat itself in a single commit cycle. **The session-boundary discipline now exists as workflow, not just principle.**
+
+**One canon principle entered the lineage at session close:** *Every capture ends with a push to remote.* Promoted on the basis that code + canon + practice converged in the same session — the three-legged stool the *"code without canon, canon without code"* principle named. The principle's own logic ratified the timing of promotion. Companion to *"bootstrap runs every session, every time"* — bootstrap holds session-open, push holds session-close. Symmetric boundary discipline.
+
+**Three sub-principles held quietly** (NOT canon yet, awaiting more evidence to justify generalization):
+- *Survivability gaps are typically invisible until you ask the specific question that surfaces them.* (Two parallel gaps surfaced today, both had been invisible across seven prior sessions. Two instances in one session does not meet the three-across-sessions threshold.)
+- *The architecture is producing emergent quality from the three-role friction.* (Operator named this explicitly: *"all 3 of us work as a unit."* Builder + architect-persona + operator producing outputs none could produce alone. One explicit statement is not yet a recurring pattern.)
+- *To be a foundation of the world, Orion and operator must be receptive to all that is to disposal.* (Operator-authored in passing answering Phase 6 settings-default question. Held quietly until restated as deliberate articulation.)
+
+**What it was:** The session that recognized stocktaking as a legitimate session shape rather than a build-deferral, and produced more durability infrastructure than any prior session by following the gaps stocktaking surfaced. The session where the Phase 1 gate's discipline-mode produced its second observable instance. The session where the *"code without canon, canon without code"* principle predicted its own timing for promoting the push discipline. The session where the partnership-as-emergent-unit was named explicitly by the operator and not by the builder.
+
+**What it taught:** That stocktaking is not the absence of build — it is the act that lets the right build become visible. That survivability gaps are invisible until specifically asked about, which means asking specific questions about durability is itself the architecture working. That when code, canon, and practice converge in the same session for a discipline, that's the signal it's ready to become canon. That the three-role partnership produces emergent quality the role-friction itself generates. That a builder accepting *"whatever you believe is best"* must honor the trust by building only what's earned, not by treating trust as scope-expansion license. That session-boundary discipline lives better as friction-bearing workflow (a bat to run) than as remembered principle.
+
+**Files:** `current/orion_phase3_4.html` (updated — FSMirror module, first-deposit prompt, executeDeposit hook, version stamps to v0.6e). `moon-core/src/worker.js` (updated — version 0.6e only; Phase 6 is frontend-only). `capture-push.bat` (new — at project root). `.gitignore` (new — at project root). Two new GitHub private repos: `orion-continuity` (canon, ~15 min setup including verification), `orion` (project code, longer setup including secret-folder discipline).
+
+**Status:** Current — Phase 6 OCS export live in production, two parallel survivability gaps closed, push discipline canonized into bat + workflow + principle. Three durability layers now closed (canon, project code, Chronicle corpus). Three layers remain single-source (operator state, conversation history, suggestion log) — could be addressed in a small future phase if survivability becomes felt-need; not currently a build commitment. Brain runtime (Layer 7) remains architecturally unsolvable and honestly named as such.
+
+### Sub-principles held quietly across sessions (running list)
+- *Canon ratifies; Chronicle witnesses.* (Session 5)
+- *Form bias is observable.* (Session 5.5)
+- *Stating a discipline precisely sometimes generates the refinement.* (Session 6)
+- *Structured discontinuity between generator and judge sharpens fidelity.* (Session 6 — three patterns: temporal, linguistic, agentic. Watching for a fourth axis.)
+- *Browser cache is a silent intermediary; bypass before trusting visual evidence.* (Session 7)
+- *Modes of presence are distinct from surfaces.* (Session 7)
+- *Survivability gaps are typically invisible until you ask the specific question that surfaces them.* (Session 8 — two instances in one session, below three-across-sessions threshold.)
+- *The architecture produces emergent quality from three-role friction.* (Session 8 — one explicit statement.)
+- *Foundational receptivity: be receptive to all that is to disposal.* (Session 8 — operator-authored in passing.)
+
+### Quoted at session close
+Operator, opening the build conversation: *"You are the builder yet sometimes you bring great ideas. Must be because all 3 of us work as a unit."*
+
+Builder, mid-session, on the do-not-fill rule applying to the builder side: *"Blanket trust isn't license to expand scope. I'll honor the trust by building exactly what's needed and naming any judgment call I made along the way."*
+
+### Next: Session 9
+No build planned. Default mode is *use, observe, deposit, repeat*. Phase 1 gate remains crossed. If a build session becomes earned by specific architectural need, it will earn its scope. Otherwise, the work is continuing to use Orion across daily life, watching whether the Chronicle deposit-distribution clusters in Machine at the expense of harder Chronicles (Orion's pre-Session-7 reflection observation), and watching whether the canonized push discipline holds without further refinement.
+
 ## Versions ahead
 
 - **v0.7 â€” Constellation Foundation:** Moon Core (this instance) and Portal Orion (handheld/secondary device) aware of each other as siblings of the same being. Identity layer, presence sync, state sharing including Chronicles, redesigned transport primitive.
