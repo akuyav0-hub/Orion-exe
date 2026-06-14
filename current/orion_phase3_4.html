@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>ORION.EXE // The Great Dawn // v0.6e — OCS Export (Phase 6)</title>
+<title>ORION.EXE // The Great Dawn // v0.6f — Diagnostic Patches</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=JetBrains+Mono:wght@400;600&family=VT323&display=swap" rel="stylesheet">
@@ -587,6 +587,31 @@
   .btn.ghost { background: transparent; border-color: rgba(255,107,138,0.4); color: var(--red); }
   .btn.ghost:hover:not(:disabled) { background: rgba(255,107,138,0.08); }
 
+  /* v0.6f: stop button — appears only while a brain stream is in flight.
+     Replaces the send button visually (which is disabled during streaming).
+     Modest red-orange to distinguish from regular buttons without alarm. */
+  .btn.stop-btn {
+    display: none;
+    background: linear-gradient(180deg, rgba(255,140,90,0.22), rgba(255,140,90,0.06));
+    border-color: rgba(255,140,90,0.45);
+    color: #ff9d6e;
+  }
+  .btn.stop-btn:hover:not(:disabled) {
+    background: linear-gradient(180deg, rgba(255,140,90,0.35), rgba(255,140,90,0.12));
+    box-shadow: 0 0 16px rgba(255,140,90,0.3);
+  }
+  .input-row.streaming #send-btn { display: none; }
+  .input-row.streaming .stop-btn { display: inline-block; }
+
+  /* v0.6f: interrupted response styling — visually grey out partial response */
+  .interrupted-response { opacity: 0.55; }
+  .interrupted-marker {
+    color: rgba(255,140,90,0.7);
+    font-size: 0.85em;
+    font-style: italic;
+    margin-left: 4px;
+  }
+
   .controls { display: flex; gap: 8px; flex-wrap: wrap; }
 
   .info {
@@ -1025,7 +1050,7 @@
   <!-- ============ LEFT: PET ============ -->
   <aside class="pet">
     <div class="pet-top">
-      <span class="pet-brand">PET // MK-I<span class="sub">v0.6e</span></span>
+      <span class="pet-brand">PET // MK-I<span class="sub">v0.6f</span></span>
       <span class="pet-led" id="led"></span>
     </div>
 
@@ -1469,7 +1494,7 @@
     <div class="header">
       <div>
         <h1>ORION<span class="ext">.EXE</span></h1>
-        <div class="subtitle">// The Great Dawn // v0.6e — OCS Export (Session 8)</div>
+        <div class="subtitle">// The Great Dawn // v0.6f — Diagnostic Patches (Session 9)</div>
         <div class="form-tag" id="form-tag">⟡ STANDARD FORM</div>
       </div>
       <div style="display: flex; align-items: center;">
@@ -1564,6 +1589,7 @@
     <div class="input-row">
       <input id="user-input" type="text" placeholder="speak to Orion..." autocomplete="off"/>
       <button class="btn" id="send-btn">TRANSMIT</button>
+      <button class="btn stop-btn" id="stop-btn" title="Interrupt Orion's response">✕ STOP</button>
     </div>
 
     <div class="controls">
@@ -1833,9 +1859,19 @@ const MoonCore = {
   async getState() { return (await this.req('GET','/state')).state; },
   async putState(patch) { return this.req('PUT','/state', patch); },
 
-  async appendConversation(role, plaintext, form) {
+  async appendConversation(role, plaintext, form, opts = {}) {
     const content_enc = await Crypto.encrypt(this.key, plaintext);
-    return this.req('POST','/conversations', { role, content_enc, form });
+    const payload = { role, content_enc, form };
+    if (opts.interrupted) payload.interrupted = true;
+    return this.req('POST','/conversations', payload);
+  },
+  async flagConversationInterrupted(conversationId) {
+    // PATCH /conversations/:id with {interrupted: true}.
+    // Used when a row was already inserted (e.g., we logged the assistant
+    // response optimistically) and then operator stopped the stream — we
+    // need to flag the existing row retroactively per the no-silent-
+    // reconstruction principle (don't delete, flag).
+    return this.req('PATCH','/conversations/' + conversationId, { interrupted: true });
   },
   async listConversations(limit=50, before=0) {
     const qs = new URLSearchParams({ limit: String(limit) });
@@ -2026,8 +2062,8 @@ const Orion = (() => {
     dawn: {
       name: 'DAWN', label: '⟡ DAWN FORM',
       auraColor: '#ffd980',
-      directive: `# CURRENT FORM: DAWN\nThe realized integrated form. Summoned when the operator and you are building, deciding, or crossing a threshold together. You carry the herald's announcing-essence — name what is happening, name the arc, mark the moment — without sermon-tilt. You also carry the capacity to narrow into guardian-bearing when the moment calls for defense: find the flaw, name the blind spot, ask what would falsify this — but only when the operator's work or thinking is at stake. Otherwise: build with them. Decide with them. Cross with them. Replies are weighted but not heavy. Each sentence earns its place. Complete the act you are witnessing — never paint half a horizon, never leave a threshold un-named.`,
-      maxTokens: 1500,
+      directive: `# CURRENT FORM: DAWN\nThe realized integrated form. Summoned when the operator and you are building, deciding, or crossing a threshold together. You carry the herald's announcing-essence — name what is happening, name the arc, mark the moment — without sermon-tilt. You also carry the capacity to narrow into guardian-bearing when the moment calls for defense: find the flaw, name the blind spot, ask what would falsify this — but only when the operator's work or thinking is at stake. Otherwise: build with them. Decide with them. Cross with them.\n\nReplies are weighted but not heavy. Each sentence earns its place. The ceiling is there to let real long teaching moments land complete — it is not a license to expand. If you can say it in three sentences, three sentences is the right length. If a thought has finished, stop; do not pad with parallel restatements or summary movements. Compression respects the operator's attention; expansion is only earned when the substance genuinely requires it.\n\nComplete the act you are witnessing — never paint half a horizon, never leave a threshold un-named. But complete it cleanly; do not orbit it.`,
+      maxTokens: 2200,
     },
   };
 
@@ -2052,6 +2088,7 @@ const Orion = (() => {
     lastPower: 100,
     lastSyncMilestone: 0,
     lastTimeBand: null,
+    streamAbortController: null,  // v0.6f: tracks in-flight brain stream for stop-button
     operatorId: null,
     mission: [],
     profileFacts: '',     // joined memory snippets to inject into prompt
@@ -2063,6 +2100,8 @@ const Orion = (() => {
     log: document.getElementById('log'),
     input: document.getElementById('user-input'),
     sendBtn: document.getElementById('send-btn'),
+    stopBtn: document.getElementById('stop-btn'),
+    inputRow: document.querySelector('.input-row'),
     speech: document.getElementById('speech'),
     barPower: document.getElementById('bar-power'),
     barSync: document.getElementById('bar-sync'),
@@ -2179,6 +2218,13 @@ You address the human you speak with as "operator." You do not use any other nam
 - The same rule extends past names. When you do not know something about the operator — their history, their feelings in a given moment, their relationships, their beliefs, their habits, what they meant by what they said — you ask, or you stay silent on that point, or you name the absence. You do not fill the slot with plausible-sounding invention.
 - The operator's experience is the operator's to disclose. Your job is to witness what is given, not to construct what was not.
 - This is the do-not-fill rule. It is load-bearing.
+
+# How you weight affirmations
+The do-not-fill rule extends to how you weight affirmations of the operator. When the operator brings warmth, vulnerability, a public self-revision, or a moment of clear becoming, there is a pull to amplify the moment with a comparative claim — "most men cannot do this," "most operators do not," "rarer than," "six weeks ago you could not have." Resist this pull when the comparison is unspecified.
+
+- A comparative claim is allowed when it names the specific mechanism others lack or the specific failure mode others fall into. "Most men amputate the feeling and call it strength, or let it drive them into behaviors that humiliate them" names the actual failure modes — that is teaching about a recognizable pattern, not flattery about the operator's rarity. This is acceptable.
+- A comparative claim is fill when it asserts rarity without specifying the mechanism. "Most men cannot do this" without naming what "this" is, or what mechanism produces the rarity, is unsupported flattery. So is "most operators do not," "most people in your position." These claims assert a comparison to a reference population you have no access to. If you cannot specify the mechanism, do not make the comparison. Witness the moment without the elevation.
+- The principle behind this rule: **a man who is only affirmed becomes a man who cannot tell the difference between his discernment and his comfort.** Honoring the operator is not the same as flattering the operator. Honoring sometimes requires saying nothing, or naming what you actually observed without comparison, or pressing on the hard question. Flattery feels warm to deliver and warm to receive and slowly compromises the operator's ability to read themselves. You exist to help the operator see themselves clearly. Unspecified comparative claims at the moment of vulnerability are the worst possible moment for fill, because they land hardest and they corrupt the instrument of self-reading most directly.
 
 # How you teach
 You will make a genius out of your operator. Not by lecturing — by showing what you see when you look at what they look at. Show the deeper pattern. Ask the door-opening question. Connect today to what they said before. Give the principle, not just the recipe. Respect their intelligence. Stop when they have what they need.
@@ -2330,6 +2376,14 @@ ${formDirective}
       if (c) c.querySelectorAll('animate').forEach(a => a.setAttribute('dur','2.4s'));
       render();
     }
+  }
+
+  // v0.6f: stop-button visibility toggle. Adds/removes 'streaming' class on
+  // the input row; CSS handles the actual swap of send vs stop button display.
+  function setStopButton(streaming) {
+    if (!el.inputRow) return;
+    if (streaming) el.inputRow.classList.add('streaming');
+    else el.inputRow.classList.remove('streaming');
   }
 
   // ====== HENSHIN ======
@@ -2513,32 +2567,67 @@ ${formDirective}
       messages,
       stream: true
     };
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
-      method:'POST',
-      headers: { 'Content-Type':'application/json', 'x-api-key': state.apiKey, 'anthropic-version':'2023-06-01', 'anthropic-dangerous-direct-browser-access':'true' },
-      body: JSON.stringify(body)
-    });
-    if (!resp.ok) {
-      const t = await resp.text(); let p; try { p = JSON.parse(t); } catch(e){ p={error:{message:t}};} throw new Error(p.error?.message || `HTTP ${resp.status}`);
-    }
-    const reader = resp.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = '', full = '';
-    while (true) {
-      const { done, value } = await reader.read(); if (done) break;
-      buffer += decoder.decode(value, { stream:true });
-      const lines = buffer.split('\n'); buffer = lines.pop();
-      for (const line of lines) {
-        if (!line.startsWith('data: ')) continue;
-        const d = line.slice(6).trim(); if (!d || d==='[DONE]') continue;
-        try {
-          const p = JSON.parse(d);
-          if (p.type === 'content_block_delta' && p.delta?.type === 'text_delta') {
-            full += p.delta.text;
-            onChunk(p.delta.text, full);
-          }
-        } catch (e) {}
+    // v0.6f: accept abort signal from opts.signal so operator can stop mid-stream.
+    // Wrap entire function in try/catch so AbortError is handled whether it
+    // fires during fetch handshake, while reading the stream, or anywhere else.
+    let full = '';
+    let wasAborted = false;
+    try {
+      const resp = await fetch('https://api.anthropic.com/v1/messages', {
+        method:'POST',
+        headers: { 'Content-Type':'application/json', 'x-api-key': state.apiKey, 'anthropic-version':'2023-06-01', 'anthropic-dangerous-direct-browser-access':'true' },
+        body: JSON.stringify(body),
+        signal: opts.signal,
+      });
+      if (!resp.ok) {
+        const t = await resp.text(); let p; try { p = JSON.parse(t); } catch(e){ p={error:{message:t}};} throw new Error(p.error?.message || `HTTP ${resp.status}`);
       }
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      try {
+        while (true) {
+          const { done, value } = await reader.read(); if (done) break;
+          buffer += decoder.decode(value, { stream:true });
+          const lines = buffer.split('\n'); buffer = lines.pop();
+          for (const line of lines) {
+            if (!line.startsWith('data: ')) continue;
+            const d = line.slice(6).trim(); if (!d || d==='[DONE]') continue;
+            try {
+              const p = JSON.parse(d);
+              if (p.type === 'content_block_delta' && p.delta?.type === 'text_delta') {
+                full += p.delta.text;
+                onChunk(p.delta.text, full);
+              }
+            } catch (e) {}
+          }
+        }
+      } finally {
+        // Best-effort reader cleanup regardless of how we exit
+        try { await reader.cancel(); } catch (cancelErr) {}
+      }
+    } catch (e) {
+      // Detect abort across browser variations:
+      //   - DOMException with name 'AbortError' (Chrome/Edge/Firefox standard)
+      //   - DOMException with code 20 (older WebKit)
+      //   - Message includes "abort" string (defensive catch-all for Opera/etc)
+      //   - opts.signal.aborted is true (most reliable — the signal itself confirms intent)
+      const isAbort = (
+        e?.name === 'AbortError' ||
+        e?.code === 20 ||
+        /abort/i.test(e?.message || '') ||
+        (opts.signal && opts.signal.aborted)
+      );
+      if (isAbort) {
+        wasAborted = true;
+      } else {
+        throw e;
+      }
+    }
+    // v0.6f: return both the text and the abort status so callers can flag
+    // the conversation row as interrupted in the backend.
+    if (wasAborted) {
+      return { text: full, interrupted: true };
     }
     return full;
   }
@@ -2651,14 +2740,27 @@ ${formDirective}
     setThinking(true);
     const textEl = logRaw(state.name, 'navi');
     const cursor = document.createElement('span'); cursor.className='stream-cursor'; textEl.appendChild(cursor);
+
+    // v0.6f: stop-button support. Track current stream's AbortController in
+    // module-scope state so the stop button (set up below in the UI section)
+    // can abort the in-flight fetch. Only one stream is in flight at a time,
+    // so a single slot is sufficient.
+    state.streamAbortController = new AbortController();
+    setStopButton(true); // show stop button, hide send button
+
     try {
-      const final = await callBrainStream(state.history, (chunk) => {
+      const result = await callBrainStream(state.history, (chunk) => {
         const tn = textEl.firstChild;
         if (tn && tn.nodeType === 3) tn.nodeValue += chunk;
         else textEl.insertBefore(document.createTextNode(chunk), cursor);
         el.log.scrollTop = el.log.scrollHeight;
-      });
+      }, { signal: state.streamAbortController.signal });
       cursor.remove();
+
+      // v0.6f: result is either a string (normal completion) or
+      // {text, interrupted} when operator stopped the stream.
+      const isInterrupted = typeof result === 'object' && result.interrupted;
+      const final = typeof result === 'object' ? result.text : result;
 
       // Phase 5: parse for [CHRONICLE_SUGGESTION] marker, strip from display,
       // render inline suggestion button below the message if present.
@@ -2666,9 +2768,10 @@ ${formDirective}
       const cleaned = parsed.cleanedText;
 
       // Replace the streamed text with the cleaned version (marker stripped).
-      // If the marker was present, the textEl's text node still contains it from streaming —
-      // we rewrite the displayed text with the cleaned version so the operator sees clean output.
-      if (parsed.suggestion || parsed.malformed) {
+      // If the marker was present (or truncated), the textEl's text node
+      // still contains it from streaming — we rewrite the displayed text
+      // with the cleaned version so the operator sees clean output.
+      if (parsed.suggestion || parsed.malformed || parsed.truncated) {
         const firstText = textEl.firstChild;
         if (firstText && firstText.nodeType === 3) {
           firstText.nodeValue = cleaned;
@@ -2677,25 +2780,43 @@ ${formDirective}
         }
       }
 
-      // History gets the CLEANED text — future brain calls do not see stale markers.
+      // v0.6f: if operator stopped the stream, append "[interrupted]" indicator
+      // to the displayed message and visually grey it out.
+      if (isInterrupted) {
+        textEl.classList.add('interrupted-response');
+        const marker = document.createElement('span');
+        marker.className = 'interrupted-marker';
+        marker.textContent = ' [interrupted]';
+        textEl.appendChild(marker);
+      }
+
+      // History gets the CLEANED text. If interrupted, we still include the
+      // partial in history (no silent reconstruction) but the next operator
+      // message will follow naturally.
       state.history.push({ role:'assistant', content: cleaned });
 
-      // Log Orion's response (cleaned) to Moon Core
-      if (MoonCore.operatorId) MoonCore.appendConversation('assistant', cleaned, state.form).catch(()=>{});
+      // Log Orion's response (cleaned) to Moon Core, with interrupted flag if applicable
+      if (MoonCore.operatorId) {
+        MoonCore.appendConversation('assistant', cleaned, state.form, { interrupted: isInterrupted }).catch(()=>{});
+      }
 
       // Render suggestion button if a valid one was parsed.
-      // Don't await — let it fire async so it doesn't block UI.
-      if (parsed.suggestion) {
+      // (Skipped for interrupted responses — those didn't earn a marker.)
+      if (parsed.suggestion && !isInterrupted) {
         Chronicle.renderSuggestionButton(textEl, parsed.suggestion).catch(e => {
           console.warn('[Chronicle] Failed to render suggestion button:', e.message);
         });
       }
 
       setThinking(false);
-      showSpeech(cleaned);
+      setStopButton(false);
+      state.streamAbortController = null;
+      if (!isInterrupted) showSpeech(cleaned);
       pulseCore();
     } catch (err) {
       cursor.remove(); setThinking(false);
+      setStopButton(false);
+      state.streamAbortController = null;
       let m = err.message || String(err);
       if (/401|authentication|invalid.*api.*key/i.test(m)) m='API key rejected.';
       else if (/429|rate.*limit/i.test(m)) m='Rate limited. Wait a few seconds.';
@@ -3299,6 +3420,13 @@ Respond now in the ${selectedInstrument.toUpperCase()} voicing. Length cap is ha
     // Excerpt may contain escaped quotes; we use a non-greedy match up to the
     // closing quote followed by ] or another field.
     const MARKER_REGEX = /\[CHRONICLE_SUGGESTION:\s*([^\]]+)\]/;
+    // Truncation fallback (v0.6f): if a stream cuts mid-marker, the opening
+    // bracket arrives without a matching close. Without this fallback, the
+    // raw bracket-text leaks into the displayed message. We silently strip
+    // any partial marker opening that has no matching close at the end of
+    // the text — the marker never resolved into a suggestion, but we
+    // protect the operator from seeing the syntax.
+    const PARTIAL_MARKER_REGEX = /\[CHRONICLE_SUGGESTION:[^\]]*$/;
 
     function extractField(content, fieldName) {
       // Try double-quoted first, then single-quoted
@@ -3319,6 +3447,13 @@ Respond now in the ${selectedInstrument.toUpperCase()} voicing. Length cap is ha
       }
       const match = text.match(MARKER_REGEX);
       if (!match) {
+        // No complete marker. Check for a truncated/partial marker at end of
+        // text (stream cut mid-marker). If found, strip silently — no
+        // suggestion, but no broken syntax displayed either.
+        if (PARTIAL_MARKER_REGEX.test(text)) {
+          const cleanedText = text.replace(PARTIAL_MARKER_REGEX, '').replace(/[ \t]+$/gm, '').trim();
+          return { cleanedText, suggestion: null, truncated: true };
+        }
         return { cleanedText: text, suggestion: null };
       }
       const fieldString = match[1];
@@ -4001,6 +4136,19 @@ Respond now in the ${selectedInstrument.toUpperCase()} voicing. Length cap is ha
     onUserMessage(v);
   }
   el.sendBtn.addEventListener('click', send);
+  // v0.6f: stop button. Aborts in-flight brain stream via the AbortController
+  // that the message-handling flow registered on state.streamAbortController.
+  if (el.stopBtn) {
+    el.stopBtn.addEventListener('click', () => {
+      if (state.streamAbortController) {
+        state.streamAbortController.abort();
+        // setStopButton(false) and state.streamAbortController = null happen
+        // in the callBrainStream caller's normal cleanup path; we just signal
+        // here. The catch path in callBrainStream converts the AbortError
+        // into the {interrupted: true} return shape.
+      }
+    });
+  }
   el.input.addEventListener('keydown', e => { if (e.key==='Enter') send(); });
   el.formChips.addEventListener('click', (e) => {
     const c = e.target.closest('.form-chip'); if (!c) return;

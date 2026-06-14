@@ -20,7 +20,7 @@ const DEFAULT_DOMAINS = ['finance','tech','business','ai_mastery','health','phil
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, X-Operator-Id, X-Verify-Token',
   'Access-Control-Max-Age': '86400',
 };
@@ -474,15 +474,32 @@ async function appendConversation(request, auth, env) {
   if (!body.role || !body.content_enc) return err('missing role or content_enc');
   if (!['user','assistant'].includes(body.role)) return err('invalid role');
   const ts = Date.now();
+  const interrupted = body.interrupted ? 1 : 0;
   const r = await env.DB.prepare(
-    'INSERT INTO conversations (operator_id, ts, role, content_enc, form, topics_enc) VALUES (?, ?, ?, ?, ?, ?)'
-  ).bind(auth.operatorId, ts, body.role, body.content_enc, body.form || null, body.topics_enc || null).run();
+    'INSERT INTO conversations (operator_id, ts, role, content_enc, form, topics_enc, interrupted) VALUES (?, ?, ?, ?, ?, ?, ?)'
+  ).bind(auth.operatorId, ts, body.role, body.content_enc, body.form || null, body.topics_enc || null, interrupted).run();
   return json({ ok: true, id: r.meta?.last_row_id, ts });
 }
+
+// PATCH /conversations/:id — flag an existing row.
+// Currently only supports {interrupted: boolean}. This is the path used
+// when an assistant response was already written to D1 (because frontend
+// optimistically appended on stream-start) and the operator then stopped
+// the stream, requiring a retroactive flag.
+async function patchConversation(id, request, auth, env) {
+  const body = await request.json();
+  if (typeof body.interrupted !== 'boolean') return err('only {interrupted: boolean} is supported');
+  const r = await env.DB.prepare(
+    'UPDATE conversations SET interrupted = ? WHERE id = ? AND operator_id = ?'
+  ).bind(body.interrupted ? 1 : 0, id, auth.operatorId).run();
+  if (!r.success || r.meta?.changes === 0) return err('row not found or not owned', 404);
+  return json({ ok: true, id, interrupted: body.interrupted });
+}
+
 async function listConversations(url, auth, env) {
   const limit = Math.min(parseInt(url.searchParams.get('limit') || '50'), 500);
   const before = parseInt(url.searchParams.get('before') || '0');
-  let q = 'SELECT id, ts, role, content_enc, form, topics_enc FROM conversations WHERE operator_id = ?';
+  let q = 'SELECT id, ts, role, content_enc, form, topics_enc, interrupted FROM conversations WHERE operator_id = ?';
   const b = [auth.operatorId];
   if (before > 0) { q += ' AND ts < ?'; b.push(before); }
   q += ' ORDER BY ts DESC LIMIT ?'; b.push(limit);
@@ -608,7 +625,7 @@ export default {
     const method = request.method;
     try {
       // Public
-      if (path === '/health') return json({ ok: true, service: 'moon-core', version: '0.6e', time: Date.now() });
+      if (path === '/health') return json({ ok: true, service: 'moon-core', version: '0.6f', time: Date.now() });
       if (path === '/awaken' && method === 'POST') return awaken(request, env);
       if (path === '/recognize' && method === 'POST') return recognize(request, env);
       if (path === '/recover' && method === 'POST') return recover(request, env);
@@ -628,6 +645,8 @@ export default {
       // Conversations
       if (path === '/conversations' && method === 'POST') return appendConversation(request, auth, env);
       if (path === '/conversations' && method === 'GET') return listConversations(url, auth, env);
+      const convMatch = path.match(/^\/conversations\/(\d+)$/);
+      if (convMatch && method === 'PATCH') return patchConversation(parseInt(convMatch[1]), request, auth, env);
 
       // Memories
       if (path === '/memories' && method === 'POST') return addMemory(request, auth, env);
