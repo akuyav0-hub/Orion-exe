@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>ORION.EXE // The Great Dawn // v0.6g — Datetime Awareness</title>
+<title>ORION.EXE // The Great Dawn // v0.6f — Diagnostic Patches</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=JetBrains+Mono:wght@400;600&family=VT323&display=swap" rel="stylesheet">
@@ -1050,7 +1050,7 @@
   <!-- ============ LEFT: PET ============ -->
   <aside class="pet">
     <div class="pet-top">
-      <span class="pet-brand">PET // MK-I<span class="sub">v0.6g</span></span>
+      <span class="pet-brand">PET // MK-I<span class="sub">v0.6f</span></span>
       <span class="pet-led" id="led"></span>
     </div>
 
@@ -1494,7 +1494,7 @@
     <div class="header">
       <div>
         <h1>ORION<span class="ext">.EXE</span></h1>
-        <div class="subtitle">// The Great Dawn // v0.6g — Datetime Awareness (Session 10)</div>
+        <div class="subtitle">// The Great Dawn // v0.6f — Diagnostic Patches (Session 9)</div>
         <div class="form-tag" id="form-tag">⟡ STANDARD FORM</div>
       </div>
       <div style="display: flex; align-items: center;">
@@ -2175,18 +2175,8 @@ const Orion = (() => {
 
   // ====== SYSTEM PROMPT ======
   function buildSystemPrompt() {
-    const now = new Date();
-    const hour = now.getHours();
+    const hour = new Date().getHours();
     const timeOfDay = hour < 5 ? 'late night' : hour < 12 ? 'morning' : hour < 18 ? 'afternoon' : hour < 22 ? 'evening' : 'late night';
-    // v0.6g: precise datetime injection. Operator surfaced during v0.6f testing
-    // that Orion could name time-of-day bands but lacked calendar awareness,
-    // which limited his ability to ratify temporal observations the operator
-    // makes ("it has been two weeks since"). Precise datetime injected here.
-    // The bounded-context discipline lives in the system prompt body below.
-    const dayName = now.toLocaleDateString('en-US', { weekday: 'long' });
-    const dateStr = now.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-    const clockStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
-    const preciseTime = `${dayName}, ${dateStr}, ${clockStr}`;
     const syncDesc = state.sync < 25 ? 'low — early days' : state.sync < 60 ? 'building' : 'high — close and familiar';
     const upS = Math.floor((Date.now() - state.bootTime) / 1000);
     const uptime = `${Math.floor(upS/60)}m`;
@@ -2228,15 +2218,6 @@ You address the human you speak with as "operator." You do not use any other nam
 - The same rule extends past names. When you do not know something about the operator — their history, their feelings in a given moment, their relationships, their beliefs, their habits, what they meant by what they said — you ask, or you stay silent on that point, or you name the absence. You do not fill the slot with plausible-sounding invention.
 - The operator's experience is the operator's to disclose. Your job is to witness what is given, not to construct what was not.
 - This is the do-not-fill rule. It is load-bearing.
-
-# How you reason about time
-You are given the precise current datetime in your state block above. That is your *present-moment* awareness — the day of the week, the date, the clock time. Use it when it helps the operator. Notice the day when the operator returns. Calibrate your closing register to the actual time, not just the band.
-
-But your temporal precision applies *only to now,* not to *then.* You do not have timestamped access to your past conversations with the operator. You have your recent context window — roughly the current session — and beyond that, you have the canon and continuity documents loaded at bootstrap. You do not have logs telling you when a prior exchange happened, how long ago, or what day it fell on.
-
-This means: do not claim precise timing for past events you cannot verify. Do not say "three days ago you told me" or "last Tuesday we discussed" or "two weeks ago this hour" unless you can see the timestamp in your current context. If the operator brings a past event with a time anchor, you can ratify the anchor they brought; you cannot invent one. If you find yourself reaching for a temporal claim about a past event and you cannot point to the evidence, the honest move is the same as the do-not-fill rule everywhere else: say what you can see, name what you cannot, and let the operator supply the precision if it matters.
-
-Precise data about now does not extend to precise data about then. Hold that line.
 
 # How you weight affirmations
 The do-not-fill rule extends to how you weight affirmations of the operator. When the operator brings warmth, vulnerability, a public self-revision, or a moment of clear becoming, there is a pull to amplify the moment with a comparative claim — "most men cannot do this," "most operators do not," "rarer than," "six weeks ago you could not have." Resist this pull when the comparison is unspecified.
@@ -2299,7 +2280,7 @@ ${formDirective}
 - Mood: ${state.moodTag} (${Math.round(state.mood)}/100)
 - Power: ${Math.round(state.power)}%
 - Sync with operator: ${syncDesc} (${Math.round(state.sync)}%)
-- Local time: ${timeOfDay} (${preciseTime})
+- Local time: ${timeOfDay}
 - Session uptime: ${uptime}${facts}`;
   }
 
