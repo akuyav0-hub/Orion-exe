@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-title" content="Orion" />
 <link rel="apple-touch-icon" href="apple-touch-icon.png" />
 <link rel="manifest" href="manifest.webmanifest" />
-<title>ORION.EXE // The Great Dawn // v0.6h.2 — Device Fixes</title>
+<title>ORION.EXE // The Great Dawn // v0.6h — The Reconciliation</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=JetBrains+Mono:wght@400;600&family=VT323&display=swap" rel="stylesheet">
@@ -1155,7 +1155,7 @@
     .viewport::before, .viewport::after { display: none; } /* scanlines/corners off in pet mode */
 
     /* hide desktop-only panel sections on the phone (stats/meta/mission live in drawer later) */
-    .readouts, .meta-row, .mission-panel, .form-chips, .controls, .info { display: none; }
+    .readouts, .meta-row, .mission-panel, .form-chips { display: none; }
 
     /* the console (chat) is hidden until Speak orb is tapped */
     .console {
@@ -1305,9 +1305,6 @@
     #pet-sheet-body .readouts { display: grid; }
     #pet-sheet-body .meta-row { display: flex; }
     #pet-sheet-body .mission-panel { display: block; }
-    #pet-sheet-body .controls { display: flex; flex-wrap: wrap; gap: 8px; }
-    #pet-sheet-body .controls .btn { flex: 1 1 44%; min-height: 44px; }
-    #pet-sheet-body .info { display: block; font-size: 12px; }
     #pet-sheet-body .add-btn { min-width: 34px; min-height: 34px; }
 
     /* ---- Chronicle mobile pass ----
@@ -1877,7 +1874,20 @@
       <button class="pet-orb reflection" data-orb="reflection" id="pet-reflection-orb"><span class="ico">✦</span><span class="lbl">Reflect</span></button>
     </div>
 
-  </aside>
+    <button id="pet-return-orb" title="Return to Orion" aria-label="Return to Orion">◉</button>
+    <button id="drawer-install" hidden>⬇ INSTALL ORION</button>
+
+    <!-- Status sheet: on phones the readouts, meta rows and mission panel are
+         MOVED in here (moved, not cloned, so their listeners survive) and
+         restored to their desktop positions above 820px. -->
+    <div id="pet-sheet-backdrop"></div>
+    <aside id="pet-sheet" aria-label="Status and missions">
+      <div id="pet-sheet-head">
+        <span class="sheet-title">⟡ STATUS</span>
+        <button id="pet-sheet-close" aria-label="Close">✕</button>
+      </div>
+      <div id="pet-sheet-body"></div>
+    </aside>
   </aside>
 
   <!-- ============ RIGHT: CONSOLE ============ -->
@@ -1885,7 +1895,7 @@
     <div class="header">
       <div>
         <h1>ORION<span class="ext">.EXE</span></h1>
-        <div class="subtitle">// The Great Dawn // v0.6h.2 — Device Fixes (Session 10)</div>
+        <div class="subtitle">// The Great Dawn // v0.6h — The Reconciliation (Session 10)</div>
         <div class="form-tag" id="form-tag">⟡ STANDARD FORM</div>
       </div>
       <div style="display: flex; align-items: center;">
@@ -2003,23 +2013,6 @@
     </div>
   </main>
 </div>
-
-<!-- Pet Mode overlays live OUTSIDE .pet on purpose: .pet has z-index:1 on mobile,
-     which creates a stacking context that would trap these below .console (z-index:40).
-     As siblings of .stage they sit in the root stacking context and layer correctly. -->
-<button id="pet-return-orb" title="Return to Orion" aria-label="Return to Orion">◉</button>
-<button id="drawer-install" hidden>⬇ INSTALL ORION</button>
-
-<!-- Status sheet: on phones the readouts, meta rows and mission panel are
-     MOVED in here (moved, not cloned, so their listeners survive) and
-     restored to their desktop positions above 820px. -->
-<div id="pet-sheet-backdrop"></div>
-<aside id="pet-sheet" aria-label="Status and missions">
-  <div id="pet-sheet-head">
-    <span class="sheet-title">⟡ STATUS</span>
-    <button id="pet-sheet-close" aria-label="Close">✕</button>
-  </div>
-  <div id="pet-sheet-body"></div>
 
 <script>
 /* =====================================================================
@@ -5430,7 +5423,7 @@ window.Orion = Orion;
     // Collect once, and remember each element's original slot with a comment anchor
     // so desktop restoration is exact.
     var movable = [];
-    ['.readouts', '.meta-row', '.mission-panel', '.controls', '.info'].forEach(function(sel){
+    ['.readouts', '.meta-row', '.mission-panel'].forEach(function(sel){
       Array.prototype.forEach.call(document.querySelectorAll(sel), function(el){ movable.push(el); });
     });
     movable.forEach(function(el){
