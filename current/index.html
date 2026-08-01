@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-title" content="Orion" />
 <link rel="apple-touch-icon" href="apple-touch-icon.png" />
 <link rel="manifest" href="manifest.webmanifest" />
-<title>ORION.EXE // The Great Dawn // v0.6h.3 — Device Pass II</title>
+<title>ORION.EXE // The Great Dawn // v0.6h.4 — Device Pass III</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=JetBrains+Mono:wght@400;600&family=VT323&display=swap" rel="stylesheet">
@@ -1141,11 +1141,11 @@
       display: block;
     }
     .pet::-webkit-scrollbar { display: none; }
-    .pet-top {
-      position: fixed; top: calc(12px + env(safe-area-inset-top));
-      left: 16px; right: 16px; z-index: 30;
-      border: none; padding: 0; background: none;
-    }
+    /* .pet-top (the "PET // MK-I v0.6g" brand strip) and #pet-status-rail were
+       both fixed to the same top-left corner, printing on top of each other.
+       The status rail already carries the identity (ORION + form + energy), so
+       the brand strip is redundant on a phone — hide it rather than stack them. */
+    .pet-top { display: none; }
     /* viewport goes full-screen; the SVG letterboxes inside (meet), core stays centred-ish */
     .viewport {
       position: fixed; inset: 0; z-index: 2;
@@ -1168,7 +1168,11 @@
     }
     body.pet-chat-open .console { opacity: 1; pointer-events: auto; }
     /* when chat is open, Orion recedes + dims behind it (present, listening) */
-    body.pet-chat-open .viewport { filter: blur(3px) brightness(0.42) saturate(0.7); transform: scale(1.04); transition: filter 0.5s ease, transform 0.5s ease; }
+    /* Recede: dim + blur only. NO scale() — .viewport is full-bleed (inset:0),
+       so scaling it up made it 408px wide at left:-7 on a 393px screen, which
+       cropped Orion at both edges and made the page render zoomed/pannable.
+       The dimming alone reads as "receded"; the size must not change. */
+    body.pet-chat-open .viewport { filter: blur(3px) brightness(0.42) saturate(0.7); transition: filter 0.5s ease; }
     body.pet-chat-open #orbit-layer { opacity: 0; pointer-events: none; transform: scale(0.7); }
     body.pet-chat-open .pet-top, body.pet-chat-open #pet-status-rail { opacity: 0; pointer-events: none; }
 
@@ -1932,7 +1936,7 @@
     <div class="header">
       <div>
         <h1>ORION<span class="ext">.EXE</span></h1>
-        <div class="subtitle">// The Great Dawn // v0.6h.3 — Device Pass II (Session 10)</div>
+        <div class="subtitle">// The Great Dawn // v0.6h.4 — Device Pass III (Session 10)</div>
         <div class="form-tag" id="form-tag">⟡ STANDARD FORM</div>
       </div>
       <div style="display: flex; align-items: center;">

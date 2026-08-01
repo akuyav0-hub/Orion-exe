@@ -2,7 +2,7 @@
    Cache-first for the app shell + same-origin assets; the Anthropic API and the
    Moon Core worker are NEVER cached (always network) so chat and cloud sync
    behave correctly online and simply fail-soft offline. */
-const CACHE = 'orion-v4';   /* BUMP THIS on every deploy — a stale cache name serves old code */
+const CACHE = 'orion-v5';   /* BUMP THIS on every deploy — a stale cache name serves old code */
 const SHELL = ['./', './index.html', './manifest.webmanifest',
                './icon-192.png', './icon-512.png', './icon-512-maskable.png', './apple-touch-icon.png'];
 self.addEventListener('install', (e) => {
