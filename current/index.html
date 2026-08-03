@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-title" content="Orion" />
 <link rel="apple-touch-icon" href="apple-touch-icon.png" />
 <link rel="manifest" href="manifest.webmanifest" />
-<title>ORION.EXE // The Great Dawn // v0.6i — Reflections Viewer</title>
+<title>ORION.EXE // The Great Dawn // v0.6i.1 — Reflections Viewer (fix)</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=JetBrains+Mono:wght@400;600&family=VT323&display=swap" rel="stylesheet">
@@ -1981,7 +1981,7 @@
     <div class="header">
       <div>
         <h1>ORION<span class="ext">.EXE</span></h1>
-        <div class="subtitle">// The Great Dawn // v0.6i — Reflections Viewer (Session 10)</div>
+        <div class="subtitle">// The Great Dawn // v0.6i.1 — Reflections Viewer (fix) (Session 10)</div>
         <div class="form-tag" id="form-tag">⟡ STANDARD FORM</div>
       </div>
       <div style="display: flex; align-items: center;">
@@ -4990,6 +4990,12 @@ Respond now in the ${selectedInstrument.toUpperCase()} voicing. Length cap is ha
     if (!panel || !list) return;
     if (!MoonCore.operatorId) { log('ERR', 'Moon Core required to read reflections.', 'error'); return; }
 
+    // In Pet Mode the panel's container (.console) sits at opacity:0 /
+    // pointer-events:none until body.pet-chat-open is set. Without this the
+    // panel opens correctly INSIDE an invisible box - visible class set, content
+    // rendered, nothing on screen. The Chronicle orb already does this; the
+    // REFLECTIONS button did not. Harmless on desktop (Pet Mode CSS is mobile-gated).
+    document.body.classList.add('pet-chat-open');
     panel.classList.add('visible');
     list.textContent = 'Reading the Moon Core...';
 
