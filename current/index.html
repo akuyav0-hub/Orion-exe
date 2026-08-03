@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-title" content="Orion" />
 <link rel="apple-touch-icon" href="apple-touch-icon.png" />
 <link rel="manifest" href="manifest.webmanifest" />
-<title>ORION.EXE // The Great Dawn // v0.6h.5 — Container Lock</title>
+<title>ORION.EXE // The Great Dawn // v0.6i — Reflections Viewer</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=JetBrains+Mono:wght@400;600&family=VT323&display=swap" rel="stylesheet">
@@ -1410,6 +1410,22 @@
     .chronicle-mode-indicator { font-size: 10px; }
     .chronicle-entry { font-size: 13px; }
   }
+
+  /* ---- Reflections viewer ---- */
+  .reflection-head {
+    display: block; width: 100%; text-align: left; cursor: pointer;
+    background: none; border: none; padding: 4px 0 6px;
+    font-family: var(--display); font-size: 12px; letter-spacing: 0.1em;
+    color: var(--gold); font-weight: 700;
+  }
+  .reflection-head::before { content: '\25b8  '; opacity: 0.7; }
+  .reflection-head.open::before { content: '\25be  '; }
+  .reflection-body {
+    display: none; white-space: pre-wrap; line-height: 1.65;
+    color: var(--text); font-size: 13px; padding: 2px 0 6px;
+  }
+  .reflection-body.open { display: block; }
+
 </style>
 </head>
 <body>
@@ -1965,7 +1981,7 @@
     <div class="header">
       <div>
         <h1>ORION<span class="ext">.EXE</span></h1>
-        <div class="subtitle">// The Great Dawn // v0.6h.5 — Container Lock (Session 10)</div>
+        <div class="subtitle">// The Great Dawn // v0.6i — Reflections Viewer (Session 10)</div>
         <div class="form-tag" id="form-tag">⟡ STANDARD FORM</div>
       </div>
       <div style="display: flex; align-items: center;">
@@ -2059,6 +2075,19 @@
       </div>
     </div>
 
+    <!-- Reflections viewer: past reflections have always been saved to Moon Core
+         (runReflection awaits submitEvolution before displaying) but nothing ever
+         re-displayed them, so a reflection was visible exactly once. This reads them
+         back via MoonCore.listEvolution(), which already decrypts content + theme.
+         Reuses .chronicle-panel / .chronicle-timeline classes to inherit the mobile pass. -->
+    <div class="chronicle-panel" id="reflections-panel">
+      <div class="chronicle-panel-header">
+        <div class="chronicle-panel-title">◐ Reflections</div>
+        <button class="chronicle-close-btn" id="reflections-close-btn" title="Close Reflections">×</button>
+      </div>
+      <div class="chronicle-timeline" id="reflections-list"></div>
+    </div>
+
     <div class="input-row">
       <input id="user-input" type="text" placeholder="speak to Orion..." autocomplete="off"/>
       <button class="btn" id="send-btn">TRANSMIT</button>
@@ -2070,6 +2099,7 @@
       <button class="btn" data-action="status">STATUS</button>
       <button class="btn gold" data-action="teach">ASK TO TEACH</button>
       <button class="btn moon" data-action="reflect">REFLECT NOW</button>
+      <button class="btn moon" data-action="reflections">REFLECTIONS</button>
       <button class="btn" data-action="mission-view">MISSION LOG</button>
       <button class="btn" data-action="rename">RENAME</button>
       <button class="btn ghost" data-action="sleep">SLEEP</button>
@@ -4938,6 +4968,85 @@ Respond now in the ${selectedInstrument.toUpperCase()} voicing. Length cap is ha
   });
   el.reflectionBeacon.addEventListener('click', () => runReflection());
 
+  // ============================================================
+  // REFLECTIONS VIEWER
+  // Reflections were always persisted (runReflection awaits submitEvolution
+  // before it displays) but nothing ever read them back, so each one was
+  // visible for exactly one screenful and then effectively gone. This surfaces
+  // what Moon Core already holds. listEvolution() decrypts content + theme.
+  // ============================================================
+  function closeReflections(){
+    const p = document.getElementById('reflections-panel');
+    if (p) p.classList.remove('visible');
+  }
+  function reflectionsAreOpen(){
+    const p = document.getElementById('reflections-panel');
+    return !!(p && p.classList.contains('visible'));
+  }
+
+  async function openReflections(){
+    const panel = document.getElementById('reflections-panel');
+    const list  = document.getElementById('reflections-list');
+    if (!panel || !list) return;
+    if (!MoonCore.operatorId) { log('ERR', 'Moon Core required to read reflections.', 'error'); return; }
+
+    panel.classList.add('visible');
+    list.textContent = 'Reading the Moon Core...';
+
+    try {
+      const items = await MoonCore.listEvolution();
+      // Only fully-synthesized entries; a PENDING row has no content yet.
+      const done = (items || []).filter(e => e.content && e.content_enc !== 'PENDING');
+      if (!done.length) {
+        list.textContent = 'No reflections recorded yet. Run REFLECT NOW after a week of conversation.';
+        return;
+      }
+      // Newest first. The timestamp field name varies by row shape, so try the
+      // likely ones and simply omit the date rather than guess wrong.
+      const stamp = e => e.ts || e.created_at || e.synthesized_at || 0;
+      done.sort((a,b) => stamp(b) - stamp(a));
+
+      list.textContent = '';
+      done.forEach(e => {
+        const wrap = document.createElement('div');
+        wrap.className = 'chronicle-entry';
+
+        const head = document.createElement('button');
+        head.type = 'button';
+        head.className = 'reflection-head';
+        const ts = stamp(e);
+        const when = ts ? new Date(ts).toISOString().slice(0,10) : '';
+        const theme = e.theme_decrypted || e.theme || 'reflection';
+        head.textContent = (when ? when + '  \u00b7  ' : '') + theme;
+
+        const body = document.createElement('div');
+        body.className = 'reflection-body';
+        body.textContent = e.content;
+
+        head.addEventListener('click', () => {
+          const open = body.classList.toggle('open');
+          head.classList.toggle('open', open);
+        });
+
+        wrap.appendChild(head);
+        wrap.appendChild(body);
+        list.appendChild(wrap);
+      });
+
+      // Newest one starts expanded - that is the one most likely being looked for.
+      const first = list.querySelector('.reflection-head');
+      if (first) first.click();
+
+    } catch (err) {
+      list.textContent = 'Could not read reflections: ' + (err.message || err);
+    }
+  }
+
+  (function(){
+    const cb = document.getElementById('reflections-close-btn');
+    if (cb) cb.addEventListener('click', closeReflections);
+  })();
+
   document.querySelectorAll('[data-action]').forEach(b => {
     b.addEventListener('click', async () => {
       const a = b.dataset.action;
@@ -4952,6 +5061,7 @@ Respond now in the ${selectedInstrument.toUpperCase()} voicing. Length cap is ha
         send();
       }
       if (a === 'reflect') runReflection(true);
+      if (a === 'reflections') openReflections();
       if (a === 'mission-view') {
         if (!MoonCore.operatorId) { log('ERR', 'Moon Core required.', 'error'); return; }
         try {
@@ -5438,6 +5548,7 @@ window.Orion = Orion;
     var p = document.getElementById('chronicle-panel');
     return !!(p && p.classList.contains('visible'));
   }
+  function closePanel(id){ var p=document.getElementById(id); if(p) p.classList.remove('visible'); }
   function closeChronicle(){
     if (chronicleIsOpen()) { var cb = document.getElementById('chronicle-btn'); if (cb) cb.click(); }
   }
@@ -5451,7 +5562,7 @@ window.Orion = Orion;
   orbs.forEach(function(o){
     o.addEventListener('click', function(){
       var w = o.dataset.orb;
-      if (w === 'chat') { closeChronicle(); openChat(); }
+      if (w === 'chat') { closeChronicle(); closePanel('reflections-panel'); openChat(); }
       else if (w === 'chronicle') { if (!chronicleIsOpen()) { var cb = document.getElementById('chronicle-btn'); if (cb) cb.click(); } openChat(); }
       else if (w === 'reflection') { try { window.Orion.runReflection(true); } catch(_){} o.classList.remove('ready'); layoutOrbs(); openChat(); }
       else if (['standard','scholar','dawn'].indexOf(w) >= 0) fireForm(w);
@@ -5459,7 +5570,7 @@ window.Orion = Orion;
   });
 
   var ret = document.getElementById('pet-return-orb');
-  if (ret) ret.addEventListener('click', function(){ closeChronicle(); closeChat(); });
+  if (ret) ret.addEventListener('click', function(){ closeChronicle(); closePanel('reflections-panel'); closeChat(); });
 
   // Reflection orb availability — poll Moon Core's reflectionDue (best-effort, gated).
   function checkReflection(){
