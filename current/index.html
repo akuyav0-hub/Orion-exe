@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-title" content="Orion" />
 <link rel="apple-touch-icon" href="apple-touch-icon.png" />
 <link rel="manifest" href="manifest.webmanifest" />
-<title>ORION.EXE // The Great Dawn // v0.6i.1 — Reflections Viewer (fix)</title>
+<title>ORION.EXE // The Great Dawn // v0.6i.2 — Surface Coordinator</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=JetBrains+Mono:wght@400;600&family=VT323&display=swap" rel="stylesheet">
@@ -1981,7 +1981,7 @@
     <div class="header">
       <div>
         <h1>ORION<span class="ext">.EXE</span></h1>
-        <div class="subtitle">// The Great Dawn // v0.6i.1 — Reflections Viewer (fix) (Session 10)</div>
+        <div class="subtitle">// The Great Dawn // v0.6i.2 — Surface Coordinator (Session 10)</div>
         <div class="form-tag" id="form-tag">⟡ STANDARD FORM</div>
       </div>
       <div style="display: flex; align-items: center;">
@@ -4975,6 +4975,52 @@ Respond now in the ${selectedInstrument.toUpperCase()} voicing. Length cap is ha
   // visible for exactly one screenful and then effectively gone. This surfaces
   // what Moon Core already holds. listEvolution() decrypts content + theme.
   // ============================================================
+  // ============================================================
+  // SURFACE COORDINATOR
+  // One place that decides "get out of the way, then show this."
+  //
+  // The full-screen surfaces (chat log, Chronicle, Reflections) and the mobile
+  // status sheet are mutually exclusive, but their open/close logic used to live
+  // in three separate scopes that could not see each other. So every new action
+  // had to re-learn the rule, and each one that forgot produced the same class of
+  // bug: a panel opening underneath the sheet, or rendering correctly inside a
+  // faded-out console. Route everything through here instead.
+  //
+  // Purely DOM-based, so scope does not matter and any future surface inherits
+  // the behaviour for free - register its id in EXCLUSIVE_PANELS and it is done.
+  // ============================================================
+  const EXCLUSIVE_PANELS = ['chronicle-panel', 'reflections-panel'];
+
+  function prepareSurface(keepPanelId) {
+    // 1. The status sheet is a menu. It always yields to whatever it launched.
+    ['pet-sheet', 'pet-sheet-backdrop'].forEach(function(id){
+      const el = document.getElementById(id);
+      if (el) el.classList.remove('open');
+    });
+    const sheetBtn = document.getElementById('pet-sheet-btn');
+    if (sheetBtn) sheetBtn.classList.remove('on');
+
+    // 2. Only one panel may hold the surface at a time. Close each through its
+    //    OWN close path where it has one - Chronicle tracks its open state in a
+    //    closure variable (ctx.open), so stripping .visible directly would desync
+    //    it and re-create the latch bug that v0.6h.3 fixed.
+    EXCLUSIVE_PANELS.forEach(function(id){
+      if (id === keepPanelId) return;
+      const p = document.getElementById(id);
+      if (!p || !p.classList.contains('visible')) return;
+      if (id === 'chronicle-panel') {
+        const cb = document.getElementById('chronicle-close-btn');
+        if (cb) { cb.click(); return; }   // keeps ctx.open in sync
+      }
+      p.classList.remove('visible');
+    });
+
+    // 3. In Pet Mode the console is opacity:0/pointer-events:none until this
+    //    class is set - without it a panel opens inside an invisible container.
+    document.body.classList.add('pet-chat-open');
+  }
+  window.__orionPrepareSurface = prepareSurface;
+
   function closeReflections(){
     const p = document.getElementById('reflections-panel');
     if (p) p.classList.remove('visible');
@@ -4995,7 +5041,7 @@ Respond now in the ${selectedInstrument.toUpperCase()} voicing. Length cap is ha
     // panel opens correctly INSIDE an invisible box - visible class set, content
     // rendered, nothing on screen. The Chronicle orb already does this; the
     // REFLECTIONS button did not. Harmless on desktop (Pet Mode CSS is mobile-gated).
-    document.body.classList.add('pet-chat-open');
+    prepareSurface('reflections-panel');   // closes the sheet + any other panel, brings the console forward
     panel.classList.add('visible');
     list.textContent = 'Reading the Moon Core...';
 
@@ -5056,6 +5102,11 @@ Respond now in the ${selectedInstrument.toUpperCase()} voicing. Length cap is ha
   document.querySelectorAll('[data-action]').forEach(b => {
     b.addEventListener('click', async () => {
       const a = b.dataset.action;
+      // Any action launched from inside the mobile status sheet makes the sheet
+      // yield, and brings the console forward so whatever it produces is actually
+      // visible. Applied here at the dispatch rather than per-button, so every
+      // existing AND future .controls action inherits it without being wired.
+      if (b.closest && b.closest('#pet-sheet-body')) prepareSurface(null);
       if (a === 'ping') { state.sync = Math.min(100, state.sync + 0.8); render(); log(state.name, "Pong.", 'navi'); }
       if (a === 'status') {
         log('SYS', `form ${FORMS[state.form].name} · sync ${Math.round(state.sync)}% · mood ${state.moodTag} · power ${Math.round(state.power)}% · ${MoonCore.operatorId?'core LINKED':'core OFFLINE'} · brain ${state.apiKey?state.model:'offline'}`, 'system');
@@ -5568,15 +5619,15 @@ window.Orion = Orion;
   orbs.forEach(function(o){
     o.addEventListener('click', function(){
       var w = o.dataset.orb;
-      if (w === 'chat') { closeChronicle(); closePanel('reflections-panel'); openChat(); }
-      else if (w === 'chronicle') { if (!chronicleIsOpen()) { var cb = document.getElementById('chronicle-btn'); if (cb) cb.click(); } openChat(); }
+      if (w === 'chat') { window.__orionPrepareSurface(null); openChat(); }
+      else if (w === 'chronicle') { window.__orionPrepareSurface('chronicle-panel'); if (!chronicleIsOpen()) { var cb = document.getElementById('chronicle-btn'); if (cb) cb.click(); } openChat(); }
       else if (w === 'reflection') { try { window.Orion.runReflection(true); } catch(_){} o.classList.remove('ready'); layoutOrbs(); openChat(); }
       else if (['standard','scholar','dawn'].indexOf(w) >= 0) fireForm(w);
     });
   });
 
   var ret = document.getElementById('pet-return-orb');
-  if (ret) ret.addEventListener('click', function(){ closeChronicle(); closePanel('reflections-panel'); closeChat(); });
+  if (ret) ret.addEventListener('click', function(){ window.__orionPrepareSurface(null); closeChat(); });
 
   // Reflection orb availability — poll Moon Core's reflectionDue (best-effort, gated).
   function checkReflection(){
