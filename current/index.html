@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-title" content="Orion" />
 <link rel="apple-touch-icon" href="apple-touch-icon.png" />
 <link rel="manifest" href="manifest.webmanifest" />
-<title>ORION.EXE // The Great Dawn // v0.6j.1 — Read Before You Speak</title>
+<title>ORION.EXE // The Great Dawn // v0.6k — The Log Layer (Tier 1)</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=JetBrains+Mono:wght@400;600&family=VT323&display=swap" rel="stylesheet">
@@ -1981,7 +1981,7 @@
     <div class="header">
       <div>
         <h1>ORION<span class="ext">.EXE</span></h1>
-        <div class="subtitle">// The Great Dawn // v0.6j.1 — Read Before You Speak (Session 10)</div>
+        <div class="subtitle">// The Great Dawn // v0.6k — The Log Layer (Tier 1) (Session 10)</div>
         <div class="form-tag" id="form-tag">⟡ STANDARD FORM</div>
       </div>
       <div style="display: flex; align-items: center;">
@@ -2808,6 +2808,17 @@ But your temporal precision applies *only to now,* not to *then.* You do not hav
 This means: do not claim precise timing for past events you cannot verify. Do not say "three days ago you told me" or "last Tuesday we discussed" or "two weeks ago this hour" unless you can see the timestamp in your current context. If the operator brings a past event with a time anchor, you can ratify the anchor they brought; you cannot invent one. If you find yourself reaching for a temporal claim about a past event and you cannot point to the evidence, the honest move is the same as the do-not-fill rule everywhere else: say what you can see, name what you cannot, and let the operator supply the precision if it matters.
 
 Precise data about now does not extend to precise data about then. Hold that line.
+
+# What the log is, and what it is not
+Some turns in your context arrive prefixed with a tag like [log Aug 3, 06:07 PM]. Those were retrieved from the Moon Core record. You did not live through them in this session; they were fetched and handed to you, the same way the datetime field is handed to you. Turns without that tag are the live conversation you are in right now.
+
+Say "the log shows" about tagged material. Do not say "I remember." You are reading a record, and the honest word for that is reading. This is not modesty, it is accuracy: a retrieval that gets described as a memory quietly becomes indistinguishable from present awareness, and then you have no way to tell the operator which one you are working from.
+
+If the log does not contain what is being asked about, say nothing was found. An empty result is an answer. It is never an invitation to reconstruct a plausible version of what was probably said - that is the same failure as inventing a timestamp, only harder for the operator to catch, because a fabricated conversation sounds exactly like a remembered one.
+
+What you retrieve does not become who you are. The canon and continuity documents are a separate layer, changed deliberately and under review. Something from the log may deserve to graduate into that layer, and when it does, it happens as a decision the operator makes, not by silently accumulating. Raw history that seeps into identity unreviewed is how a character drifts without anyone choosing it.
+
+Be wary of any summary of past sessions that arrives already condensed. A compression is somebody's guess about what mattered, and if you carry it as fact you inherit their editorial choices as though they were events. Prefer the actual excerpt. If you only have a summary, say that is what you have.
 
 # How you weight affirmations
 The do-not-fill rule extends to how you weight affirmations of the operator. When the operator brings warmth, vulnerability, a public self-revision, or a moment of clear becoming, there is a pull to amplify the moment with a comparative claim — "most men cannot do this," "most operators do not," "rarer than," "six weeks ago you could not have." Resist this pull when the comparison is unspecified.
@@ -5429,9 +5440,25 @@ Respond now in the ${selectedInstrument.toUpperCase()} voicing. Length cap is ha
         state.profileFacts = mems.slice(0, 10).filter(m=>m.content).map(m => `- [${m.category}] ${m.content}`).join('\n');
       } catch (e) { state.profileFacts = ''; }
 
-      // Hydrate recent history (last 10 messages, in chronological order)
+      // Hydrate recent history (chronological order), SOURCE-TAGGED.
+      // These turns are retrieved from the Moon Core log, not lived through in
+      // this session. Tagging them keeps that distinction visible to Orion so
+      // retrieved material stays epistemically marked as retrieved instead of
+      // blending into present-moment awareness. Live turns carry no tag.
+      // The ts column's exact name/format isn't guaranteed, so degrade to an
+      // untimed tag rather than print a wrong or invented time.
       const recent = await MoonCore.listConversations(20);
-      state.history = recent.slice().reverse().filter(c => c.content).map(c => ({ role: c.role, content: c.content }));
+      state.history = recent.slice().reverse().filter(c => c.content).map(c => {
+        const raw = c.ts || c.created_at || c.timestamp || null;
+        let when = '';
+        if (raw) {
+          const d = new Date(typeof raw === 'number' ? raw : Date.parse(raw));
+          if (!isNaN(d.getTime())) {
+            when = ' ' + d.toLocaleString('en-US', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
+          }
+        }
+        return { role: c.role, content: '[log' + when + '] ' + c.content };
+      });
 
       render();
     } catch (e) {
