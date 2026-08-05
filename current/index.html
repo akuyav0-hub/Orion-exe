@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-title" content="Orion" />
 <link rel="apple-touch-icon" href="apple-touch-icon.png" />
 <link rel="manifest" href="manifest.webmanifest" />
-<title>ORION.EXE // The Great Dawn // v0.6k — The Log Layer (Tier 1)</title>
+<title>ORION.EXE // The Great Dawn // v0.6k.1 — Log Browser (Tier 2)</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=JetBrains+Mono:wght@400;600&family=VT323&display=swap" rel="stylesheet">
@@ -1312,6 +1312,8 @@
     #pet-sheet-body .controls { display: flex; flex-wrap: wrap; gap: 8px; }
     #pet-sheet-body .controls .btn { flex: 1 1 44%; min-height: 44px; }
     #pet-sheet-body .info { display: block; font-size: 12px; }
+    #log-search { font-size: 16px; min-height: 44px; }
+    #log-more { min-height: 44px; }
 
     /* ---- device-pass fixes (v0.6h.3) ----
        These elements are position:absolute with desktop coordinates, but
@@ -1425,6 +1427,25 @@
     color: var(--text); font-size: 13px; padding: 2px 0 6px;
   }
   .reflection-body.open { display: block; }
+
+
+  /* ---- Log browser (Tier 2) ---- */
+  #log-search {
+    flex: 0 0 auto; width: 100%; box-sizing: border-box; margin-bottom: 10px;
+    background: rgba(2,3,10,0.8); border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 6px; padding: 9px 12px; color: var(--text);
+    font-family: var(--mono); font-size: 13px; outline: none;
+  }
+  #log-search:focus { border-color: rgba(78,164,255,0.45); }
+  #log-more { flex: 0 0 auto; margin-top: 10px; width: 100%; }
+  #log-more:disabled { opacity: 0.45; cursor: default; }
+  .log-note { font-size: 11px; color: var(--text-dim); padding: 2px 0 8px; }
+  .log-row { margin-bottom: 12px; }
+  .log-meta {
+    font-family: var(--display); font-size: 10px; letter-spacing: 0.14em;
+    color: var(--gold); font-weight: 700; margin-bottom: 4px;
+  }
+  .log-body { white-space: pre-wrap; line-height: 1.6; font-size: 13px; color: var(--text); }
 
 </style>
 </head>
@@ -1981,7 +2002,7 @@
     <div class="header">
       <div>
         <h1>ORION<span class="ext">.EXE</span></h1>
-        <div class="subtitle">// The Great Dawn // v0.6k — The Log Layer (Tier 1) (Session 10)</div>
+        <div class="subtitle">// The Great Dawn // v0.6k.1 — Log Browser (Tier 2) (Session 10)</div>
         <div class="form-tag" id="form-tag">⟡ STANDARD FORM</div>
       </div>
       <div style="display: flex; align-items: center;">
@@ -2088,6 +2109,21 @@
       <div class="chronicle-timeline" id="reflections-list"></div>
     </div>
 
+    <!-- Log browser (Tier 2): pages back through the Moon Core record using the
+         `before` cursor listConversations already accepted but nothing ever used,
+         and filters client-side over content that is ALREADY decrypted locally -
+         no server-side search, so the E2E encryption model is untouched. -->
+    <div class="chronicle-panel" id="log-panel">
+      <div class="chronicle-panel-header">
+        <div class="chronicle-panel-title">▤ Log</div>
+        <button class="chronicle-close-btn" id="log-close-btn" title="Close Log">×</button>
+      </div>
+      <input type="text" id="log-search" placeholder="filter what has been fetched…"
+             autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
+      <div class="chronicle-timeline" id="log-list"></div>
+      <button class="btn" id="log-more">LOAD OLDER</button>
+    </div>
+
     <div class="input-row">
       <input id="user-input" type="text" placeholder="speak to Orion..." autocomplete="off"/>
       <button class="btn" id="send-btn">TRANSMIT</button>
@@ -2100,6 +2136,7 @@
       <button class="btn gold" data-action="teach">ASK TO TEACH</button>
       <button class="btn moon" data-action="reflect">REFLECT NOW</button>
       <button class="btn moon" data-action="reflections">REFLECTIONS</button>
+      <button class="btn moon" data-action="log">LOG</button>
       <button class="btn" data-action="mission-view">MISSION LOG</button>
       <button class="btn" data-action="rename">RENAME</button>
       <button class="btn ghost" data-action="sleep">SLEEP</button>
@@ -4992,6 +5029,117 @@ Respond now in the ${selectedInstrument.toUpperCase()} voicing. Length cap is ha
   el.reflectionBeacon.addEventListener('click', () => runReflection());
 
   // ============================================================
+  // LOG BROWSER (Tier 2)
+  // Pages backwards through the Moon Core record using the `before` cursor that
+  // listConversations already accepted but nothing ever passed. Filtering is
+  // client-side over rows that have ALREADY been fetched and decrypted locally -
+  // deliberately not a server-side search, because content is E2E encrypted and
+  // querying it server-side would mean the server touching something derived
+  // from plaintext. This searches what you have, and says so.
+  // ============================================================
+  const logView = { rows: [], cursor: 0, exhausted: false, loading: false };
+
+  function logStamp(row){
+    const raw = row.ts || row.created_at || row.timestamp || null;
+    if (!raw) return { ms: 0, label: '' };
+    const d = new Date(typeof raw === 'number' ? raw : Date.parse(raw));
+    if (isNaN(d.getTime())) return { ms: 0, label: '' };
+    return { ms: d.getTime(), label: d.toLocaleString('en-US',
+      { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' }) };
+  }
+
+  function renderLog(){
+    const list = document.getElementById('log-list');
+    const more = document.getElementById('log-more');
+    const q = (document.getElementById('log-search').value || '').trim().toLowerCase();
+    if (!list) return;
+
+    const shown = q ? logView.rows.filter(r => (r.content||'').toLowerCase().includes(q)) : logView.rows;
+
+    if (more) {
+      more.textContent = logView.exhausted ? 'BEGINNING OF RECORD' : (logView.loading ? 'LOADING\u2026' : 'LOAD OLDER');
+      more.disabled = logView.exhausted || logView.loading;
+    }
+
+    if (!shown.length) {
+      list.textContent = q
+        ? 'Nothing matching "' + q + '" in the ' + logView.rows.length + ' turns fetched so far. Load older to search further back.'
+        : 'No turns fetched yet.';
+      return;
+    }
+
+    list.textContent = '';
+    if (q) {
+      const note = document.createElement('div');
+      note.className = 'log-note';
+      note.textContent = shown.length + ' of ' + logView.rows.length + ' fetched turns match. This searches only what has been loaded, not the whole record.';
+      list.appendChild(note);
+    }
+    shown.forEach(r => {
+      const row = document.createElement('div');
+      row.className = 'chronicle-entry log-row';
+      const meta = document.createElement('div');
+      meta.className = 'log-meta';
+      const who = r.role === 'assistant' ? 'ORION' : 'YOU';
+      const st = logStamp(r);
+      meta.textContent = who + (st.label ? '  \u00b7  ' + st.label : '');
+      const body = document.createElement('div');
+      body.className = 'log-body';
+      body.textContent = r.content;
+      row.appendChild(meta); row.appendChild(body);
+      list.appendChild(row);
+    });
+  }
+
+  async function loadOlderLog(){
+    if (logView.loading || logView.exhausted) return;
+    logView.loading = true; renderLog();
+    try {
+      const batch = await MoonCore.listConversations(30, logView.cursor || 0);
+      const usable = (batch || []).filter(c => c.content);
+      if (!usable.length) { logView.exhausted = true; }
+      else {
+        logView.rows = logView.rows.concat(usable);   // API returns newest-first
+        const oldest = usable[usable.length - 1];
+        const st = logStamp(oldest);
+        if (!st.ms || st.ms === logView.cursor) logView.exhausted = true;  // no usable cursor: stop rather than loop
+        else logView.cursor = st.ms;
+        if (usable.length < 30) logView.exhausted = true;
+      }
+    } catch (err) {
+      const list = document.getElementById('log-list');
+      if (list) list.textContent = 'Could not read the log: ' + (err.message || err);
+    } finally {
+      logView.loading = false; renderLog();
+    }
+  }
+
+  async function openLogPanel(){
+    const panel = document.getElementById('log-panel');
+    if (!panel) return;
+    if (!MoonCore.operatorId) { log('ERR', 'Moon Core required to read the log.', 'error'); return; }
+    prepareSurface('log-panel');
+    panel.classList.add('visible');
+    logView.rows = []; logView.cursor = 0; logView.exhausted = false;
+    const list = document.getElementById('log-list');
+    if (list) list.textContent = 'Reading the Moon Core\u2026';
+    const search = document.getElementById('log-search');
+    if (search) search.value = '';
+    await loadOlderLog();
+  }
+
+  (function(){
+    const cb = document.getElementById('log-close-btn');
+    if (cb) cb.addEventListener('click', function(){
+      const p = document.getElementById('log-panel'); if (p) p.classList.remove('visible');
+    });
+    const more = document.getElementById('log-more');
+    if (more) more.addEventListener('click', loadOlderLog);
+    const search = document.getElementById('log-search');
+    if (search) search.addEventListener('input', renderLog);
+  })();
+
+  // ============================================================
   // REFLECTIONS VIEWER
   // Reflections were always persisted (runReflection awaits submitEvolution
   // before it displays) but nothing ever read them back, so each one was
@@ -5012,7 +5160,7 @@ Respond now in the ${selectedInstrument.toUpperCase()} voicing. Length cap is ha
   // Purely DOM-based, so scope does not matter and any future surface inherits
   // the behaviour for free - register its id in EXCLUSIVE_PANELS and it is done.
   // ============================================================
-  const EXCLUSIVE_PANELS = ['chronicle-panel', 'reflections-panel'];
+  const EXCLUSIVE_PANELS = ['chronicle-panel', 'reflections-panel', 'log-panel'];
 
   function prepareSurface(keepPanelId) {
     // 1. The status sheet is a menu. It always yields to whatever it launched.
@@ -5142,6 +5290,7 @@ Respond now in the ${selectedInstrument.toUpperCase()} voicing. Length cap is ha
       }
       if (a === 'reflect') runReflection(true);
       if (a === 'reflections') openReflections();
+      if (a === 'log') openLogPanel();
       if (a === 'mission-view') {
         if (!MoonCore.operatorId) { log('ERR', 'Moon Core required.', 'error'); return; }
         try {
