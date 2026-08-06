@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-title" content="Orion" />
 <link rel="apple-touch-icon" href="apple-touch-icon.png" />
 <link rel="manifest" href="manifest.webmanifest" />
-<title>ORION.EXE // The Great Dawn // v0.6k.1 — Log Browser (Tier 2)</title>
+<title>ORION.EXE // The Great Dawn // v0.6k.2 — Wider Memory</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=JetBrains+Mono:wght@400;600&family=VT323&display=swap" rel="stylesheet">
@@ -2002,7 +2002,7 @@
     <div class="header">
       <div>
         <h1>ORION<span class="ext">.EXE</span></h1>
-        <div class="subtitle">// The Great Dawn // v0.6k.1 — Log Browser (Tier 2) (Session 10)</div>
+        <div class="subtitle">// The Great Dawn // v0.6k.2 — Wider Memory (Session 10)</div>
         <div class="form-tag" id="form-tag">⟡ STANDARD FORM</div>
       </div>
       <div style="display: flex; align-items: center;">
@@ -2658,6 +2658,15 @@ const Orion = (() => {
       maxTokens: 2600,
     },
   };
+
+  // How many past turns Orion actually carries. This governs BOTH the hydration
+  // pull at session start AND the in-session trim - they must stay equal, or the
+  // trim silently undoes the hydration on the very first message sent.
+  // Cost note: every turn in this window is re-sent on EVERY request, so this
+  // number multiplies the history portion of per-message token spend. Prompt
+  // caching is the lever that makes a large window cheap; until that lands,
+  // treat this as a deliberate cost/recall tradeoff rather than a free dial.
+  const HISTORY_WINDOW = 60;
 
   const state = {
     name: 'ORION',
@@ -3549,7 +3558,7 @@ ${formDirective}
     // Log user message to Moon Core (encrypted)
     if (MoonCore.operatorId) MoonCore.appendConversation('user', messageForBrain, state.form).catch(()=>{});
     state.history.push({ role:'user', content:messageForBrain });
-    if (state.history.length > 20) state.history = state.history.slice(-20);
+    if (state.history.length > HISTORY_WINDOW) state.history = state.history.slice(-HISTORY_WINDOW);
 
     setThinking(true);
     const textEl = logRaw(state.name, 'navi');
@@ -5596,7 +5605,7 @@ Respond now in the ${selectedInstrument.toUpperCase()} voicing. Length cap is ha
       // blending into present-moment awareness. Live turns carry no tag.
       // The ts column's exact name/format isn't guaranteed, so degrade to an
       // untimed tag rather than print a wrong or invented time.
-      const recent = await MoonCore.listConversations(20);
+      const recent = await MoonCore.listConversations(HISTORY_WINDOW);
       state.history = recent.slice().reverse().filter(c => c.content).map(c => {
         const raw = c.ts || c.created_at || c.timestamp || null;
         let when = '';
