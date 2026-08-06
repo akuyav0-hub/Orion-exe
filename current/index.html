@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-title" content="Orion" />
 <link rel="apple-touch-icon" href="apple-touch-icon.png" />
 <link rel="manifest" href="manifest.webmanifest" />
-<title>ORION.EXE // The Great Dawn // v0.6k.2 — Wider Memory</title>
+<title>ORION.EXE // The Great Dawn // v0.6l.1 — Write Health</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=JetBrains+Mono:wght@400;600&family=VT323&display=swap" rel="stylesheet">
@@ -1429,6 +1429,17 @@
   .reflection-body.open { display: block; }
 
 
+  .log-jump { display: flex; gap: 8px; margin-bottom: 8px; flex: 0 0 auto; }
+  .log-jump input[type=date] {
+    flex: 1; min-width: 0; background: rgba(2,3,10,0.8);
+    border: 1px solid rgba(255,255,255,0.12); border-radius: 6px;
+    padding: 8px 10px; color: var(--text); font-family: var(--mono);
+    font-size: 13px; outline: none;
+  }
+  .log-jump .btn { min-height: 0; padding: 0 12px; font-size: 9px; }
+  .log-window-note {
+    font-size: 11px; color: var(--gold); padding: 2px 0 8px; line-height: 1.5;
+  }
   /* ---- Log browser (Tier 2) ---- */
   #log-search {
     flex: 0 0 auto; width: 100%; box-sizing: border-box; margin-bottom: 10px;
@@ -1446,6 +1457,14 @@
     color: var(--gold); font-weight: 700; margin-bottom: 4px;
   }
   .log-body { white-space: pre-wrap; line-height: 1.6; font-size: 13px; color: var(--text); }
+
+
+  /* Core badge: a live link that is silently failing to write */
+  .core-badge.save-warn {
+    border-color: var(--red) !important;
+    color: var(--red) !important;
+    background: rgba(255,107,138,0.10) !important;
+  }
 
 </style>
 </head>
@@ -2002,7 +2021,7 @@
     <div class="header">
       <div>
         <h1>ORION<span class="ext">.EXE</span></h1>
-        <div class="subtitle">// The Great Dawn // v0.6k.2 — Wider Memory (Session 10)</div>
+        <div class="subtitle">// The Great Dawn // v0.6l.1 — Write Health (Session 10)</div>
         <div class="form-tag" id="form-tag">⟡ STANDARD FORM</div>
       </div>
       <div style="display: flex; align-items: center;">
@@ -2117,6 +2136,11 @@
       <div class="chronicle-panel-header">
         <div class="chronicle-panel-title">▤ Log</div>
         <button class="chronicle-close-btn" id="log-close-btn" title="Close Log">×</button>
+      </div>
+      <div class="log-jump">
+        <input type="date" id="log-date" aria-label="Jump to a date" />
+        <button class="btn" id="log-jump-btn">JUMP</button>
+        <button class="btn" id="log-recent-btn">RECENT</button>
       </div>
       <input type="text" id="log-search" placeholder="filter what has been fetched…"
              autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
@@ -2458,6 +2482,24 @@ const MoonCore = {
     // need to flag the existing row retroactively per the no-silent-
     // reconstruction principle (don't delete, flag).
     return this.req('PATCH','/conversations/' + conversationId, { interrupted: true });
+  },
+  // Query an ARBITRARY time window rather than only the slice adjacent to now.
+  // Throws WORKER_TOO_OLD if the Moon Core predates the since/until params - an
+  // older Worker silently ignores unknown query params and would hand back the
+  // most recent rows instead, which would look like a successful answer about
+  // the wrong time period. Better to fail loudly than to quietly mislead.
+  async listConversationsWindow(sinceMs, untilMs, opts = {}) {
+    const qs = new URLSearchParams({ limit: String(opts.limit || 200), order: opts.order || 'asc' });
+    if (sinceMs) qs.set('since', String(sinceMs));
+    if (untilMs) qs.set('until', String(untilMs));
+    const r = await this.req('GET', '/conversations?' + qs);
+    if (!r.window || !r.window.supports_window) {
+      const e = new Error('WORKER_TOO_OLD');
+      e.code = 'WORKER_TOO_OLD';
+      throw e;
+    }
+    for (const c of r.conversations) c.content = await Crypto.decrypt(this.key, c.content_enc);
+    return { rows: r.conversations, window: r.window };
   },
   async listConversations(limit=50, before=0) {
     const qs = new URLSearchParams({ limit: String(limit) });
@@ -3298,6 +3340,42 @@ ${formDirective}
   function setMood(d) { state.mood = Math.max(0, Math.min(100, state.mood + d)); recomputeMoodTag(); render(); }
 
   // ====== RENDER ======
+  // ============================================================
+  // WRITE HEALTH
+  // appendConversation used to be fire-and-forget (.catch(()=>{})), so a failed
+  // save was completely invisible - the log would develop holes and nothing
+  // would say so. That matters more now that retrieval reads from that log:
+  // a silent write failure becomes a silent gap in memory later.
+  //
+  // Warns ONCE per outage rather than per message (a dropped connection would
+  // otherwise spam an error on every turn), keeps a live count in the core
+  // badge, and reports how many turns were affected when writes recover.
+  // ============================================================
+  const saveHealth = { failures: 0, warned: false };
+
+  function trackSave(promise, what) {
+    return promise.then(function(){
+      if (saveHealth.failures > 0) {
+        const n = saveHealth.failures;
+        saveHealth.failures = 0;
+        saveHealth.warned = false;
+        log('SYS', 'Moon Core writes recovered. ' + n + ' turn' + (n === 1 ? '' : 's') +
+                   ' failed to save during the outage and will not appear in the log.', 'system');
+      }
+      render();
+      return true;
+    }).catch(function(e){
+      saveHealth.failures++;
+      if (!saveHealth.warned) {
+        saveHealth.warned = true;
+        log('ERR', 'Moon Core is not saving this conversation (' + (e.message || e) +
+                   '). Turns from here will be missing from the log until it recovers.', 'error');
+      }
+      render();
+      return false;
+    });
+  }
+
   function render() {
     el.barPower.style.width = state.power+'%';
     el.barSync.style.width = state.sync+'%';
@@ -3312,6 +3390,15 @@ ${formDirective}
       el.coreBadge.classList.add('live');
       el.coreLabel.textContent = '🌙 MOON CORE ' + state.model.split('-')[1].toUpperCase();
       el.coreVal.textContent = 'linked';
+      // A live link that is failing to write is worse than an offline one,
+      // because it looks healthy. Say so plainly in the badge.
+      if (saveHealth.failures > 0) {
+        el.coreBadge.classList.add('save-warn');
+        el.coreLabel.textContent = '⚠ NOT SAVING (' + saveHealth.failures + ')';
+        el.coreVal.textContent = 'write failing';
+      } else {
+        el.coreBadge.classList.remove('save-warn');
+      }
     } else {
       el.coreBadge.classList.remove('live');
       el.coreLabel.textContent = 'SEEKING CORE';
@@ -3556,7 +3643,7 @@ ${formDirective}
     }
 
     // Log user message to Moon Core (encrypted)
-    if (MoonCore.operatorId) MoonCore.appendConversation('user', messageForBrain, state.form).catch(()=>{});
+    if (MoonCore.operatorId) trackSave(MoonCore.appendConversation('user', messageForBrain, state.form), 'user turn');
     state.history.push({ role:'user', content:messageForBrain });
     if (state.history.length > HISTORY_WINDOW) state.history = state.history.slice(-HISTORY_WINDOW);
 
@@ -3620,7 +3707,7 @@ ${formDirective}
 
       // Log Orion's response (cleaned) to Moon Core, with interrupted flag if applicable
       if (MoonCore.operatorId) {
-        MoonCore.appendConversation('assistant', cleaned, state.form, { interrupted: isInterrupted }).catch(()=>{});
+        trackSave(MoonCore.appendConversation('assistant', cleaned, state.form, { interrupted: isInterrupted }), 'assistant turn');
       }
 
       // Render suggestion button if a valid one was parsed.
@@ -5146,6 +5233,47 @@ Respond now in the ${selectedInstrument.toUpperCase()} voicing. Length cap is ha
     if (more) more.addEventListener('click', loadOlderLog);
     const search = document.getElementById('log-search');
     if (search) search.addEventListener('input', renderLog);
+
+    // ---- date jump (Tier 3): query an arbitrary day, not just backward from now ----
+    const jumpBtn = document.getElementById('log-jump-btn');
+    const dateIn  = document.getElementById('log-date');
+    const recentBtn = document.getElementById('log-recent-btn');
+
+    if (jumpBtn) jumpBtn.addEventListener('click', async function(){
+      const list = document.getElementById('log-list');
+      if (!dateIn || !dateIn.value) { if (list) list.textContent = 'Pick a date first.'; return; }
+      // Interpret the picked date in LOCAL time, midnight to midnight.
+      const [y, m, d] = dateIn.value.split('-').map(Number);
+      const start = new Date(y, m - 1, d, 0, 0, 0, 0).getTime();
+      const end   = new Date(y, m - 1, d, 23, 59, 59, 999).getTime();
+      if (list) list.textContent = 'Reading that day\u2026';
+      logView.rows = []; logView.cursor = 0; logView.exhausted = true;  // a window is not a paging cursor
+      try {
+        const res = await MoonCore.listConversationsWindow(start, end, { limit: 300, order: 'asc' });
+        logView.rows = (res.rows || []).filter(function(c){ return c.content; });
+        renderLog();
+        const note = document.createElement('div');
+        note.className = 'log-window-note';
+        note.textContent = logView.rows.length
+          ? 'Showing ' + logView.rows.length + ' turns from ' + dateIn.value + ' (that whole day, oldest first).'
+          : 'Nothing logged on ' + dateIn.value + '. That is the record, not a retrieval failure.';
+        if (list) list.insertBefore(note, list.firstChild);
+      } catch (e) {
+        if (list) {
+          list.textContent = (e && e.code === 'WORKER_TOO_OLD')
+            ? 'Your Moon Core Worker predates date queries. Deploy the updated worker.js, then try again. (Paging with LOAD OLDER still works.)'
+            : 'Could not read that day: ' + (e.message || e);
+        }
+      }
+    });
+
+    if (recentBtn) recentBtn.addEventListener('click', function(){
+      if (dateIn) dateIn.value = '';
+      logView.rows = []; logView.cursor = 0; logView.exhausted = false;
+      const list = document.getElementById('log-list');
+      if (list) list.textContent = 'Reading the Moon Core\u2026';
+      loadOlderLog();
+    });
   })();
 
   // ============================================================

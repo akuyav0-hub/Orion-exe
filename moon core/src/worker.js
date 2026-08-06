@@ -497,14 +497,49 @@ async function patchConversation(id, request, auth, env) {
 }
 
 async function listConversations(url, auth, env) {
-  const limit = Math.min(parseInt(url.searchParams.get('limit') || '50'), 500);
+  // Params:
+  //   limit   - max rows (default 50, hard cap 500)
+  //   before  - ts <  before   (backward paging cursor; unchanged behaviour)
+  //   since   - ts >= since    (window start)
+  //   until   - ts <= until    (window end)
+  //   order   - 'asc' | 'desc' (default desc; asc reads a window chronologically)
+  //
+  // since/until make an ARBITRARY window queryable instead of only the slice
+  // adjacent to now. All params compose; omitting them preserves the original
+  // behaviour exactly, so existing callers are unaffected.
+  //
+  // The response echoes the resolved window back. That is deliberate: the client
+  // can confirm it got the window it asked for rather than assuming, which is how
+  // it detects talking to a Worker that predates these params (an older Worker
+  // silently ignores unknown query params and would return the wrong rows while
+  // looking successful).
+  const limit  = Math.min(parseInt(url.searchParams.get('limit') || '50'), 500);
   const before = parseInt(url.searchParams.get('before') || '0');
+  const since  = parseInt(url.searchParams.get('since')  || '0');
+  const until  = parseInt(url.searchParams.get('until')  || '0');
+  const order  = (url.searchParams.get('order') || '').toLowerCase() === 'asc' ? 'ASC' : 'DESC';
+
   let q = 'SELECT id, ts, role, content_enc, form, topics_enc, interrupted FROM conversations WHERE operator_id = ?';
   const b = [auth.operatorId];
-  if (before > 0) { q += ' AND ts < ?'; b.push(before); }
-  q += ' ORDER BY ts DESC LIMIT ?'; b.push(limit);
+  if (before > 0) { q += ' AND ts < ?';  b.push(before); }
+  if (since  > 0) { q += ' AND ts >= ?'; b.push(since);  }
+  if (until  > 0) { q += ' AND ts <= ?'; b.push(until);  }
+  q += ` ORDER BY ts ${order} LIMIT ?`; b.push(limit);
+
   const r = await env.DB.prepare(q).bind(...b).all();
-  return json({ conversations: r.results || [] });
+  const rows = r.results || [];
+  return json({
+    conversations: rows,
+    window: {
+      since: since || null,
+      until: until || null,
+      before: before || null,
+      order: order.toLowerCase(),
+      limit,
+      returned: rows.length,
+      supports_window: true,
+    },
+  });
 }
 
 async function addMemory(request, auth, env) {
@@ -625,7 +660,7 @@ export default {
     const method = request.method;
     try {
       // Public
-      if (path === '/health') return json({ ok: true, service: 'moon-core', version: '0.6f', time: Date.now() });
+      if (path === '/health') return json({ ok: true, service: 'moon-core', version: '0.6l-window', time: Date.now() });
       if (path === '/awaken' && method === 'POST') return awaken(request, env);
       if (path === '/recognize' && method === 'POST') return recognize(request, env);
       if (path === '/recover' && method === 'POST') return recover(request, env);
