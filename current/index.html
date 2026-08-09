@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-title" content="Orion" />
 <link rel="apple-touch-icon" href="apple-touch-icon.png" />
 <link rel="manifest" href="manifest.webmanifest" />
-<title>ORION.EXE // The Great Dawn // v0.6m.2 — Copy Within Reach</title>
+<title>ORION.EXE // The Great Dawn // v0.6n — Sorted by Kind</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=JetBrains+Mono:wght@400;600&family=VT323&display=swap" rel="stylesheet">
@@ -1163,6 +1163,8 @@
 
     /* hide desktop-only panel sections on the phone (stats/meta/mission live in drawer later) */
     .readouts, .meta-row, .mission-panel, .form-chips, .controls, .info { display: none; }
+    /* mission panel is retired as an operator-facing surface - it no longer
+       relocates into the sheet, so it simply stays hidden on mobile. */
 
     /* the console (chat) is hidden until Speak orb is tapped */
     .console {
@@ -1320,6 +1322,20 @@
     #pet-sheet-body .controls { display: flex; flex-wrap: wrap; gap: 8px; }
     #pet-sheet-body .controls .btn { flex: 1 1 44%; min-height: 44px; }
     #pet-sheet-body .info { display: block; font-size: 12px; }
+    #pet-sheet-tabs { display: flex; gap: 6px; flex: 0 0 auto; margin-bottom: 10px; }
+    .sheet-tab {
+      flex: 1 1 0; min-width: 0; min-height: 40px; padding: 0 4px;
+      border-radius: 8px; cursor: pointer;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.03); color: var(--text-dim);
+      font-family: var(--display); font-size: 9px; letter-spacing: 0.08em; font-weight: 700;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .sheet-tab.active {
+      color: var(--pet-aura, #4ea4ff);
+      border-color: color-mix(in srgb, var(--pet-aura,#4ea4ff) 50%, transparent);
+      background: color-mix(in srgb, var(--pet-aura,#4ea4ff) 10%, transparent);
+    }
     #log-search { font-size: 16px; min-height: 44px; }
     #log-more { min-height: 44px; }
 
@@ -1448,6 +1464,14 @@
   .log-window-note {
     font-size: 11px; color: var(--gold); padding: 2px 0 8px; line-height: 1.5;
   }
+  /* ---- Tabbed status sheet ----
+     The sheet used to be one flat scroll where a glance action, a generative act,
+     a browsable record and a lifecycle decision all sat as peers. Sorting by KIND
+     first means nothing is ten items deep just because it shipped late. */
+  #pet-sheet-tabs { display: none; }
+  .sheet-pane { display: none; }
+  .sheet-pane.active { display: flex; flex-direction: column; gap: 12px; }
+
   /* ---- Log browser (Tier 2) ---- */
   #log-search {
     flex: 0 0 auto; width: 100%; box-sizing: border-box; margin-bottom: 10px;
@@ -2030,7 +2054,7 @@
     <div class="header">
       <div>
         <h1>ORION<span class="ext">.EXE</span></h1>
-        <div class="subtitle">// The Great Dawn // v0.6m.2 — Copy Within Reach (Session 10)</div>
+        <div class="subtitle">// The Great Dawn // v0.6n — Sorted by Kind (Session 10)</div>
         <div class="form-tag" id="form-tag">⟡ STANDARD FORM</div>
       </div>
       <div style="display: flex; align-items: center;">
@@ -2134,6 +2158,9 @@
         <div class="chronicle-panel-title">◐ Reflections</div>
         <button class="chronicle-close-btn" id="reflections-close-btn" title="Close Reflections">×</button>
       </div>
+      <!-- All three reflection doors now open into the same room: the orb
+           (appears when one is due), this manual trigger, and the record below. -->
+      <button class="btn moon" id="reflect-now-btn">✦ REFLECT NOW</button>
       <div class="chronicle-timeline" id="reflections-list"></div>
     </div>
 
@@ -2163,18 +2190,30 @@
       <button class="btn stop-btn" id="stop-btn" title="Interrupt Orion's response">✕ STOP</button>
     </div>
 
-    <div class="controls">
+    <!-- Controls are grouped by KIND, not by when they happened to be built:
+         a glance, a generative act, a browsable record, a lifecycle decision.
+         Each group relocates into its own tab of the mobile sheet.
+         REMOVED here: DISCONNECT (the OS swipe-to-close already does it better,
+         and an in-app button competing with a native gesture loses) and
+         MISSION LOG (retired as an operator-facing panel by decision - its
+         future is as a backend calibration signal Orion reads, not a panel
+         the operator browses). REFLECT NOW moved into the Reflections surface,
+         so all three reflection doors live in one room. -->
+    <div class="controls" data-group="glance">
       <button class="btn" data-action="ping">PING</button>
       <button class="btn" data-action="status">STATUS</button>
+    </div>
+    <div class="controls" data-group="act">
       <button class="btn gold" data-action="teach">ASK TO TEACH</button>
-      <button class="btn moon" data-action="reflect">REFLECT NOW</button>
+      <button class="btn" data-action="copy-chat">COPY CHAT</button>
+    </div>
+    <div class="controls" data-group="archive">
       <button class="btn moon" data-action="reflections">REFLECTIONS</button>
       <button class="btn moon" data-action="log">LOG</button>
-      <button class="btn" data-action="copy-chat">COPY CHAT</button>
-      <button class="btn" data-action="mission-view">MISSION LOG</button>
+    </div>
+    <div class="controls" data-group="session">
       <button class="btn" data-action="rename">RENAME</button>
       <button class="btn ghost" data-action="sleep">SLEEP</button>
-      <button class="btn ghost" data-action="logout">DISCONNECT</button>
     </div>
 
     <div class="info">
@@ -2200,7 +2239,18 @@
     <span class="sheet-title">⟡ STATUS</span>
     <button id="pet-sheet-close" aria-label="Close">✕</button>
   </div>
-  <div id="pet-sheet-body"></div>
+  <div id="pet-sheet-tabs" role="tablist">
+    <button class="sheet-tab active" data-tab="status">STATUS</button>
+    <button class="sheet-tab" data-tab="act">ACT</button>
+    <button class="sheet-tab" data-tab="archive">ARCHIVE</button>
+    <button class="sheet-tab" data-tab="session">SESSION</button>
+  </div>
+  <div id="pet-sheet-body">
+    <div class="sheet-pane active" data-pane="status"></div>
+    <div class="sheet-pane" data-pane="act"></div>
+    <div class="sheet-pane" data-pane="archive"></div>
+    <div class="sheet-pane" data-pane="session"></div>
+  </div>
 
 <script>
 /* =====================================================================
@@ -5497,6 +5547,9 @@ Respond now in the ${selectedInstrument.toUpperCase()} voicing. Length cap is ha
   }
 
   (function(){
+    // REFLECT NOW lives inside the Reflections surface now, not the global sheet.
+    const rn = document.getElementById('reflect-now-btn');
+    if (rn) rn.addEventListener('click', function(){ runReflection(true); });
     const cb = document.getElementById('reflections-close-btn');
     if (cb) cb.addEventListener('click', closeReflections);
   })();
@@ -6109,9 +6162,34 @@ window.Orion = Orion;
 
     // Collect once, and remember each element's original slot with a comment anchor
     // so desktop restoration is exact.
+    // Each element declares which tab it belongs to. Sorting by KIND rather than
+    // by build order is the whole point - a glance, an act, a record and a
+    // lifecycle decision are different kinds of thing and shouldn't be peers.
+    var PANE_FOR = {
+      '.readouts': 'status',
+      '.meta-row': 'status',
+      '.info':     'session',
+    };
     var movable = [];
-    ['.readouts', '.meta-row', '.mission-panel', '.controls', '.info'].forEach(function(sel){
-      Array.prototype.forEach.call(document.querySelectorAll(sel), function(el){ movable.push(el); });
+    ['.readouts', '.meta-row', '.controls', '.info'].forEach(function(sel){
+      Array.prototype.forEach.call(document.querySelectorAll(sel), function(el){
+        // .controls groups carry their own data-group; everything else is mapped above.
+        el.__pane = el.dataset.group || PANE_FOR[sel] || 'status';
+        movable.push(el);
+      });
+    });
+
+    // Tab switching
+    Array.prototype.forEach.call(document.querySelectorAll('.sheet-tab'), function(tab){
+      tab.addEventListener('click', function(){
+        var want = tab.dataset.tab;
+        Array.prototype.forEach.call(document.querySelectorAll('.sheet-tab'), function(t){
+          t.classList.toggle('active', t === tab);
+        });
+        Array.prototype.forEach.call(document.querySelectorAll('.sheet-pane'), function(p){
+          p.classList.toggle('active', p.dataset.pane === want);
+        });
+      });
     });
     movable.forEach(function(el){
       var ph = document.createComment('pet-sheet-slot');
@@ -6119,7 +6197,12 @@ window.Orion = Orion;
       if (el.parentNode) el.parentNode.insertBefore(ph, el);
     });
 
-    function toSheet(){ movable.forEach(function(el){ body.appendChild(el); }); }
+    function toSheet(){
+      movable.forEach(function(el){
+        var pane = body.querySelector('[data-pane="' + (el.__pane || 'status') + '"]') || body;
+        pane.appendChild(el);
+      });
+    }
     function toInline(){ movable.forEach(function(el){ if (el.__ph && el.__ph.parentNode) el.__ph.parentNode.insertBefore(el, el.__ph); }); }
     function openSheet(){ sheet.classList.add('open'); if(back) back.classList.add('open'); if(btn) btn.classList.add('on'); }
     function closeSheet(){ sheet.classList.remove('open'); if(back) back.classList.remove('open'); if(btn) btn.classList.remove('on'); }
