@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-title" content="Orion" />
 <link rel="apple-touch-icon" href="apple-touch-icon.png" />
 <link rel="manifest" href="manifest.webmanifest" />
-<title>ORION.EXE // The Great Dawn // v0.6l.1 — Write Health</title>
+<title>ORION.EXE // The Great Dawn // v0.6m — The Composer</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=JetBrains+Mono:wght@400;600&family=VT323&display=swap" rel="stylesheet">
@@ -570,17 +570,24 @@
   }
   @keyframes blink { 50% { opacity: 0; } }
 
-  .input-row { display: flex; gap: 8px; }
-  .input-row input {
+  /* The composer is a TEXTAREA, not a single-line input. It used to be
+     <input type="text">, which physically cannot show more than one line - long
+     messages scrolled away invisibly and cursor placement meant editing blind.
+     It now grows with content up to a cap, then scrolls internally. */
+  .input-row { display: flex; gap: 8px; align-items: flex-end; }
+  .input-row textarea {
     flex: 1; background: rgba(2,3,10,0.8);
     border: 1px solid rgba(255,255,255,0.12);
     border-radius: 8px; padding: 13px 15px;
     color: var(--text); font-family: var(--mono); font-size: 13px;
-    outline: none; transition: all 0.2s;
+    outline: none; transition: border-color 0.2s, box-shadow 0.2s;
+    resize: none; overflow-y: auto; line-height: 1.5;
+    min-height: 46px; max-height: 40vh;
+    -webkit-overflow-scrolling: touch;
   }
-  .input-row input:focus { border-color: var(--blue); box-shadow: 0 0 0 2px rgba(78,164,255,0.18); }
-  .input-row input::placeholder { color: var(--text-dim); font-style: italic; }
-  .input-row input:disabled { opacity: 0.5; cursor: not-allowed; }
+  .input-row textarea:focus { border-color: var(--blue); box-shadow: 0 0 0 2px rgba(78,164,255,0.18); }
+  .input-row textarea::placeholder { color: var(--text-dim); font-style: italic; }
+  .input-row textarea:disabled { opacity: 0.5; cursor: not-allowed; }
 
   .btn {
     background: linear-gradient(180deg, rgba(78,164,255,0.22), rgba(78,164,255,0.08));
@@ -1184,7 +1191,7 @@
       background: none; border: none;
     }
     .console .input-row { flex: 0 0 auto; gap: 8px; margin-top: 10px; }
-    .console .input-row input { font-size: 16px; min-height: 46px; }
+    .console .input-row textarea { font-size: 16px; min-height: 46px; max-height: 32dvh; }
     .console .input-row #send-btn { min-height: 46px; }
     .api-strip { flex: 0 0 auto; }
     .api-strip input, .api-strip select, .api-strip .small-btn { font-size: 16px; min-height: 40px; }
@@ -2021,7 +2028,7 @@
     <div class="header">
       <div>
         <h1>ORION<span class="ext">.EXE</span></h1>
-        <div class="subtitle">// The Great Dawn // v0.6l.1 — Write Health (Session 10)</div>
+        <div class="subtitle">// The Great Dawn // v0.6m — The Composer (Session 10)</div>
         <div class="form-tag" id="form-tag">⟡ STANDARD FORM</div>
       </div>
       <div style="display: flex; align-items: center;">
@@ -2149,7 +2156,7 @@
     </div>
 
     <div class="input-row">
-      <input id="user-input" type="text" placeholder="speak to Orion..." autocomplete="off"/>
+      <textarea id="user-input" rows="1" placeholder="speak to Orion..." autocomplete="off" autocorrect="on" autocapitalize="sentences" spellcheck="true"></textarea>
       <button class="btn" id="send-btn">TRANSMIT</button>
       <button class="btn stop-btn" id="stop-btn" title="Interrupt Orion's response">✕ STOP</button>
     </div>
@@ -2161,6 +2168,7 @@
       <button class="btn moon" data-action="reflect">REFLECT NOW</button>
       <button class="btn moon" data-action="reflections">REFLECTIONS</button>
       <button class="btn moon" data-action="log">LOG</button>
+      <button class="btn" data-action="copy-chat">COPY CHAT</button>
       <button class="btn" data-action="mission-view">MISSION LOG</button>
       <button class="btn" data-action="rename">RENAME</button>
       <button class="btn ghost" data-action="sleep">SLEEP</button>
@@ -5064,6 +5072,7 @@ Respond now in the ${selectedInstrument.toUpperCase()} voicing. Length cap is ha
     if (!v || state.thinking || state.transforming) return;
     log('YOU', v, 'user');
     el.input.value = '';
+    el.input.style.height = 'auto';   // collapse back after sending
     onUserMessage(v);
   }
   el.sendBtn.addEventListener('click', send);
@@ -5080,7 +5089,25 @@ Respond now in the ${selectedInstrument.toUpperCase()} voicing. Length cap is ha
       }
     });
   }
-  el.input.addEventListener('keydown', e => { if (e.key==='Enter') send(); });
+  // Textarea composer: Enter sends, Shift+Enter (or Ctrl/Cmd+Enter) inserts a
+  // newline. Without this a textarea would swallow Enter and never send.
+  el.input.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.isComposing) {
+      e.preventDefault();
+      send();
+    }
+  });
+
+  // Auto-grow: height tracks content up to the CSS max-height, then scrolls.
+  function autoGrowInput(){
+    const t = el.input;
+    if (!t) return;
+    t.style.height = 'auto';                       // reset so shrinking works too
+    t.style.height = Math.min(t.scrollHeight, Math.round(window.innerHeight * 0.4)) + 'px';
+  }
+  el.input.addEventListener('input', autoGrowInput);
+  window.addEventListener('resize', autoGrowInput);
+  autoGrowInput();
   el.formChips.addEventListener('click', (e) => {
     const c = e.target.closest('.form-chip'); if (!c) return;
     henshin(c.dataset.form);
@@ -5123,6 +5150,53 @@ Respond now in the ${selectedInstrument.toUpperCase()} voicing. Length cap is ha
     } catch (e) { log('ERR', e.message, 'error'); }
   });
   el.reflectionBeacon.addEventListener('click', () => runReflection());
+
+  // ============================================================
+  // COPY CHAT
+  // Dumps the on-screen thread as plain text, role-labelled and timestamped in
+  // the same shape the log already uses, so it can be pasted straight into a
+  // Claude session for development handoff. Reads the rendered log rather than
+  // state.history so what you copy is exactly what you can see.
+  // ============================================================
+  async function copyChatToClipboard(){
+    const logEl = document.getElementById('log');
+    if (!logEl) return;
+    const lines = [];
+    const stamp = new Date().toLocaleString('en-US',
+      { month:'short', day:'numeric', year:'numeric', hour:'2-digit', minute:'2-digit' });
+    lines.push('ORION conversation export - ' + stamp);
+    lines.push('');
+
+    Array.prototype.forEach.call(logEl.children, function(msg){
+      const whoEl  = msg.querySelector('.who');
+      const textEl = msg.querySelector('.text');
+      if (!textEl) return;
+      const who  = whoEl ? whoEl.textContent.trim() : '';
+      const time = (msg.querySelector('.ts') || {}).textContent || '';
+      const body = textEl.textContent.trim();
+      if (!body) return;
+      lines.push((who ? who + ': ' : '') + body + (time ? '   ' + time.trim() : ''));
+      lines.push('');
+    });
+
+    if (lines.length <= 2) { log('SYS', 'Nothing in the thread to copy yet.', 'system'); return; }
+    const out = lines.join('\n');
+
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(out);
+      } else {
+        // Fallback for older/insecure contexts where the Clipboard API is absent.
+        const ta = document.createElement('textarea');
+        ta.value = out; ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta); ta.select();
+        document.execCommand('copy'); ta.remove();
+      }
+      log('SYS', 'Copied ' + (lines.length - 2) / 2 + ' messages to the clipboard.', 'system');
+    } catch (e) {
+      log('ERR', 'Could not reach the clipboard: ' + (e.message || e), 'error');
+    }
+  }
 
   // ============================================================
   // LOG BROWSER (Tier 2)
@@ -5423,11 +5497,13 @@ Respond now in the ${selectedInstrument.toUpperCase()} voicing. Length cap is ha
       if (a === 'teach') {
         if (!state.apiKey) { log('ERR', 'Brain required.', 'error'); return; }
         el.input.value = 'Teach me something useful right now. Something I likely don\'t know but should.';
+        el.input.dispatchEvent(new Event('input'));
         send();
       }
       if (a === 'reflect') runReflection(true);
       if (a === 'reflections') openReflections();
       if (a === 'log') openLogPanel();
+      if (a === 'copy-chat') copyChatToClipboard();
       if (a === 'mission-view') {
         if (!MoonCore.operatorId) { log('ERR', 'Moon Core required.', 'error'); return; }
         try {
