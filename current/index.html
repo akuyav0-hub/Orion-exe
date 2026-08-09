@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-title" content="Orion" />
 <link rel="apple-touch-icon" href="apple-touch-icon.png" />
 <link rel="manifest" href="manifest.webmanifest" />
-<title>ORION.EXE // The Great Dawn // v0.6m.1 — The Composer (touch fix)</title>
+<title>ORION.EXE // The Great Dawn // v0.6m.2 — Copy Within Reach</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=JetBrains+Mono:wght@400;600&family=VT323&display=swap" rel="stylesheet">
@@ -697,7 +697,7 @@
 
   /* Pet-mode overlay elements are mobile-only — hidden by default, revealed in the ≤820px block below */
   #orbit-layer, .pet-orb, #pet-status-rail, #pet-return-orb, #drawer-install, #pet-fx-toggle,
-  #pet-sheet, #pet-sheet-backdrop, #pet-sheet-btn { display: none; }
+  #pet-sheet, #pet-sheet-backdrop, #pet-sheet-btn, #pet-copy-btn { display: none; }
 
 
 
@@ -1266,6 +1266,7 @@
     }
 
     /* ---- status sheet (stats / state rows / missions) ---- */
+    #pet-copy-btn,
     #pet-sheet-btn {
       display: inline-flex; align-items: center; justify-content: center;
       width: 34px; height: 34px; margin-left: 6px; flex: 0 0 auto;
@@ -2009,6 +2010,7 @@
       </svg>
       <button id="pet-fx-toggle" title="Reduce effects" aria-label="Reduce effects (lighter on battery)">◐</button>
       <button id="pet-sheet-btn" title="Status &amp; missions" aria-label="Open status and missions">▤</button>
+      <button id="pet-copy-btn" title="Copy conversation" aria-label="Copy this conversation to the clipboard">⧉</button>
     </div>
 
     <div id="orbit-layer">
@@ -2028,7 +2030,7 @@
     <div class="header">
       <div>
         <h1>ORION<span class="ext">.EXE</span></h1>
-        <div class="subtitle">// The Great Dawn // v0.6m.1 — The Composer (touch fix) (Session 10)</div>
+        <div class="subtitle">// The Great Dawn // v0.6m.2 — Copy Within Reach (Session 10)</div>
         <div class="form-tag" id="form-tag">⟡ STANDARD FORM</div>
       </div>
       <div style="display: flex; align-items: center;">
@@ -5306,6 +5308,15 @@ Respond now in the ${selectedInstrument.toUpperCase()} voicing. Length cap is ha
     if (search) search.value = '';
     await loadOlderLog();
   }
+
+  (function(){
+    // COPY CHAT also lives in the always-visible Pet status rail. It was only in
+    // .controls, which relocates to the bottom of a 1169px scroll inside the
+    // status sheet on a 579px window - technically reachable, practically
+    // invisible. A high-frequency workflow action needs a top-level home.
+    const pcb = document.getElementById('pet-copy-btn');
+    if (pcb) pcb.addEventListener('click', copyChatToClipboard);
+  })();
 
   (function(){
     const cb = document.getElementById('log-close-btn');
