@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-title" content="Orion" />
 <link rel="apple-touch-icon" href="apple-touch-icon.png" />
 <link rel="manifest" href="manifest.webmanifest" />
-<title>ORION.EXE // The Great Dawn // v0.6m — The Composer</title>
+<title>ORION.EXE // The Great Dawn // v0.6m.1 — The Composer (touch fix)</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=JetBrains+Mono:wght@400;600&family=VT323&display=swap" rel="stylesheet">
@@ -2028,7 +2028,7 @@
     <div class="header">
       <div>
         <h1>ORION<span class="ext">.EXE</span></h1>
-        <div class="subtitle">// The Great Dawn // v0.6m — The Composer (Session 10)</div>
+        <div class="subtitle">// The Great Dawn // v0.6m.1 — The Composer (touch fix) (Session 10)</div>
         <div class="form-tag" id="form-tag">⟡ STANDARD FORM</div>
       </div>
       <div style="display: flex; align-items: center;">
@@ -5091,7 +5091,16 @@ Respond now in the ${selectedInstrument.toUpperCase()} voicing. Length cap is ha
   }
   // Textarea composer: Enter sends, Shift+Enter (or Ctrl/Cmd+Enter) inserts a
   // newline. Without this a textarea would swallow Enter and never send.
+  // Touch keyboards (iOS especially) do NOT report shift state with Return, so
+  // Shift+Enter is not a gesture that exists there - checking !e.shiftKey would
+  // always pass and every Return would send, leaving no way to type a newline.
+  // So on touch-primary devices we don't hijack Enter at all: Return inserts a
+  // newline natively and TRANSMIT sends, the way every mobile messaging app
+  // works. On devices with a real keyboard, Enter sends and Shift+Enter breaks
+  // the line, which is what's expected there.
+  const TOUCH_PRIMARY = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
   el.input.addEventListener('keydown', e => {
+    if (TOUCH_PRIMARY) return;                      // let the textarea behave normally
     if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.isComposing) {
       e.preventDefault();
       send();
