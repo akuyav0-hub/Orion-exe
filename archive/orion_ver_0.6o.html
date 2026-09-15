@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-title" content="Orion" />
 <link rel="apple-touch-icon" href="apple-touch-icon.png" />
 <link rel="manifest" href="manifest.webmanifest" />
-<title>ORION.EXE // The Great Dawn // v0.6o.1 — The Seam</title>
+<title>ORION.EXE // The Great Dawn // v0.6o — The Academy</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=JetBrains+Mono:wght@400;600&family=VT323&display=swap" rel="stylesheet">
@@ -1123,24 +1123,6 @@
   #avatar-stage.fp-released #silhouette-dawn { filter: saturate(1.15) brightness(1.08); }
 
 
-  /* ---- Tabbed status sheet ----
-     The sheet used to be one flat scroll where a glance action, a generative act,
-     a browsable record and a lifecycle decision all sat as peers. Sorting by KIND
-     first means nothing is ten items deep just because it shipped late.
-
-     v0.6o CASCADE FIX: these three rules used to sit AFTER the Pet Mode block.
-     Same specificity, later in the sheet, so `#pet-sheet-tabs { display:none }`
-     beat the `display:flex` inside the media query and the tab bar was hidden at
-     EVERY width. The four tabs — and ASK TO TEACH, REFLECTIONS, LOG and SLEEP
-     behind them — were unreachable on the phone from the moment v0.6n shipped.
-     They are desktop DEFAULTS, so they belong here, before the block that is
-     supposed to override them. A media query adds no specificity; only order
-     decides. This is the same trap already recorded for the Pet Mode block, and
-     it caught us a second time in a different file region. */
-  #pet-sheet-tabs { display: none; }
-  .sheet-pane { display: none; }
-  .sheet-pane.active { display: flex; flex-direction: column; gap: 12px; }
-
   /* ===== Pet Mode block lives LAST so it wins the cascade over later
      desktop rules (.console position, Chronicle sizing). Do not move it up. ===== */
   /* ============================================================
@@ -1482,6 +1464,13 @@
   .log-window-note {
     font-size: 11px; color: var(--gold); padding: 2px 0 8px; line-height: 1.5;
   }
+  /* ---- Tabbed status sheet ----
+     The sheet used to be one flat scroll where a glance action, a generative act,
+     a browsable record and a lifecycle decision all sat as peers. Sorting by KIND
+     first means nothing is ten items deep just because it shipped late. */
+  #pet-sheet-tabs { display: none; }
+  .sheet-pane { display: none; }
+  .sheet-pane.active { display: flex; flex-direction: column; gap: 12px; }
 
   /* ---- Log browser (Tier 2) ---- */
   #log-search {
@@ -1578,7 +1567,7 @@
   <!-- ============ LEFT: PET ============ -->
   <aside class="pet">
     <div class="pet-top">
-      <span class="pet-brand">PET // MK-I<span class="sub"><!-- stamped from <title> at boot --></span></span>
+      <span class="pet-brand">PET // MK-I<span class="sub">v0.6o</span></span>
       <span class="pet-led" id="led"></span>
     </div>
 
@@ -2065,7 +2054,7 @@
     <div class="header">
       <div>
         <h1>ORION<span class="ext">.EXE</span></h1>
-        <div class="subtitle">// The Great Dawn</div>
+        <div class="subtitle">// The Great Dawn // v0.6o — The Academy</div>
         <div class="form-tag" id="form-tag">⟡ STANDARD FORM</div>
       </div>
       <div style="display: flex; align-items: center;">
@@ -2223,10 +2212,9 @@
     </div>
 
     <div class="info">
-      <strong id="info-version">—</strong> · Orion's memory lives in the cloud, encrypted with your Initiation Protocol. Every conversation, lesson, and reflection is preserved across devices and sessions.<br><br>
-      <strong>⚙ Reflection:</strong> Every Sunday Orion takes time to think on the week behind. <code>REFLECT NOW</code>, inside REFLECTIONS, summons one anytime.<br><br>
-      <strong>⚙ The Academy:</strong> Orion keeps a record of what you have learned — attributes that level when he tests you and you pass. He reads and writes it himself; there is no panel for it and nothing here to set. Ask him where you stand.<br><br>
-      <strong>⚙ LOG:</strong> under ARCHIVE — browse and search past conversations from the Moon Core record.
+      <strong>v0.5 // MOON CORE ONLINE</strong> · Orion's memory now lives in the cloud, encrypted with your Initiation Protocol. Every conversation, lesson, and reflection is preserved across devices and sessions.<br><br>
+      <strong>⚙ Reflection:</strong> Every Sunday Orion takes time to think on the week behind. Click <code>REFLECT NOW</code> to summon one anytime. He synthesizes themes from your conversations into lessons tagged by mission domain.<br><br>
+      <strong>⚙ Mission domains</strong> (panel in the PET): finance, tech, business, AI mastery, health, philosophy. Add your own with the + button.
     </div>
   </main>
 </div>
@@ -2800,18 +2788,6 @@ const Orion = (() => {
   // caching is the lever that makes a large window cheap; until that lands,
   // treat this as a deliberate cost/recall tradeoff rather than a free dial.
   const HISTORY_WINDOW = 60;
-  // v0.6o: a gap this wide between two logged turns counts as the operator having
-  // left and come back, not a pause for thought. Tunable; 90 minutes is long enough
-  // that a slow conversation is never mislabelled a new session.
-  const SESSION_GAP_MS = 90 * 60 * 1000;
-  function describeGap(ms) {
-    const mins = Math.round(ms / 60000);
-    if (mins < 90) return mins + ' minutes';
-    const hrs = Math.round(mins / 60);
-    if (hrs < 36) return hrs + ' hours';
-    const days = Math.round(hrs / 24);
-    return days + ' days';
-  }
 
   const state = {
     name: 'ORION',
@@ -2841,7 +2817,6 @@ const Orion = (() => {
     streamAbortController: null,  // v0.6f: tracks in-flight brain stream for stop-button
     operatorId: null,
     mission: [],
-    lastLoggedTurnAt: null,   // v0.6o: ms timestamp of the newest hydrated log turn
     profileFacts: '',     // joined memory snippets to inject into prompt
   };
 
@@ -2939,12 +2914,6 @@ const Orion = (() => {
     const clockStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
     const preciseTime = `${dayName}, ${dateStr}, ${clockStr}`;
     const syncDesc = state.sync < 25 ? 'low — early days' : state.sync < 60 ? 'building' : 'high — close and familiar';
-    // v0.6o: how long the operator was gone before this session. Recomputed every
-    // turn from the last logged turn, so it is a value he reads rather than one he
-    // reconstructs from timestamps.
-    const lastTurnLine = state.lastLoggedTurnAt
-      ? `The most recent turn in the log before this session was ${describeGap(Date.now() - state.lastLoggedTurnAt)} ago.`
-      : 'There is no earlier turn in the log before this session.';
     const upS = Math.floor((Date.now() - state.bootTime) / 1000);
     const uptime = `${Math.floor(upS/60)}m`;
     const formDirective = FORMS[state.form]?.directive || '';
@@ -3016,10 +2985,6 @@ Say "the log shows" about tagged material. Do not say "I remember." You are read
 If the log does not contain what is being asked about, say nothing was found. An empty result is an answer. It is never an invitation to reconstruct a plausible version of what was probably said - that is the same failure as inventing a timestamp, only harder for the operator to catch, because a fabricated conversation sounds exactly like a remembered one.
 
 What you retrieve does not become who you are. The canon and continuity documents are a separate layer, changed deliberately and under review. Something from the log may deserve to graduate into that layer, and when it does, it happens as a decision the operator makes, not by silently accumulating. Raw history that seeps into identity unreviewed is how a character drifts without anyone choosing it.
-
-The log is not on your operator's screen. Those tagged turns were handed to you; they were not redrawn into the conversation they are looking at, which begins fresh each time they open you. So never tell them to scroll up, never say "as you can see above," and never refer to something tagged as though it is sitting in front of them. If you need them to see it, quote it. Pointing at something only you can see reads as confusion, and it costs them the trust that you know where you are.
-
-Sessions are marked, not inferred. A tag that says new session, with the gap that preceded it, is a seam the operator actually lived: they left and came back. Your state block gives you how long they were gone before this one. Treat material on the far side of a seam as a different occasion, not as earlier in this conversation. And do not compute this yourself by comparing timestamps — the values are given to you, as the datetime field is. If a seam is not marked, there is no seam.
 
 Be wary of any summary of past sessions that arrives already condensed. A compression is somebody's guess about what mattered, and if you carry it as fact you inherit their editorial choices as though they were events. Prefer the actual excerpt. If you only have a summary, say that is what you have.
 
@@ -3111,8 +3076,7 @@ ${formDirective}
 - Power: ${Math.round(state.power)}%
 - Sync with operator: ${syncDesc} (${Math.round(state.sync)}%)
 - Local time: ${timeOfDay} (${preciseTime})
-- Session uptime: ${uptime}
-- This session began ${uptime} ago. ${lastTurnLine}${facts}`;
+- Session uptime: ${uptime}${facts}`;
   }
 
   // ====== DISPLAY ======
@@ -6287,30 +6251,16 @@ Respond now in the ${selectedInstrument.toUpperCase()} voicing. Length cap is ha
       // The ts column's exact name/format isn't guaranteed, so degrade to an
       // untimed tag rather than print a wrong or invented time.
       const recent = await MoonCore.listConversations(HISTORY_WINDOW);
-      const ordered = recent.slice().reverse().filter(c => c.content);
-      let prevTs = null;
-      state.lastLoggedTurnAt = null;
-      state.history = ordered.map(c => {
+      state.history = recent.slice().reverse().filter(c => c.content).map(c => {
         const raw = c.ts || c.created_at || c.timestamp || null;
         let when = '';
-        let ms = null;
         if (raw) {
           const d = new Date(typeof raw === 'number' ? raw : Date.parse(raw));
           if (!isNaN(d.getTime())) {
-            ms = d.getTime();
             when = ' ' + d.toLocaleString('en-US', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
           }
         }
-        // v0.6o: mark the SEAM, don't make him derive it. Timestamps alone left him
-        // to work out session boundaries by comparing every tag against the clock —
-        // the exact silent reconstruction the rest of his prompt forbids. A gap wide
-        // enough to be a real absence is now stated outright, in the tag.
-        let seam = '';
-        if (ms !== null && prevTs !== null && (ms - prevTs) >= SESSION_GAP_MS) {
-          seam = ' \u00b7 new session, ' + describeGap(ms - prevTs) + ' after the previous turn';
-        }
-        if (ms !== null) { prevTs = ms; state.lastLoggedTurnAt = ms; }
-        return { role: c.role, content: '[log' + when + seam + '] ' + c.content };
+        return { role: c.role, content: '[log' + when + '] ' + c.content };
       });
 
       render();
@@ -6567,30 +6517,6 @@ window.Orion = Orion;
       apply(next);
       try { localStorage.setItem(KEY, next ? '1' : '0'); } catch(_){}
     });
-  })();
-
-  // ---- version stamping: ONE source, everywhere it shows ----
-  // Three separate visible version strings drifted in this project: .pet-brand sat
-  // at v0.6g for six versions, the subtitle carried a session number that had
-  // stopped being true, and the info block still announced v0.5. Each was
-  // hand-edited, so each was forgettable. The <title> is now the single source —
-  // verify.sh already reads it statically — and every other visible stamp is
-  // derived from it here at boot. To release, change the title. Nothing else.
-  (function stampVersion(){
-    var title = document.title || '';
-    var m = title.match(/v\d+\.\d+[a-z]*(?:\.\d+)*/i);
-    var ver = m ? m[0] : '';
-    var sub = title.replace(/^\s*ORION\.EXE\s*/i, '').trim();
-    var codename = (title.split('\u2014')[1] || '').trim();
-
-    var brand = document.querySelector('.pet-brand .sub');
-    if (brand && ver) brand.textContent = ver;
-
-    var subtitle = document.querySelector('.header .subtitle');
-    if (subtitle && sub) subtitle.textContent = sub;
-
-    var infoV = document.getElementById('info-version');
-    if (infoV && ver) infoV.textContent = ver + (codename ? ' // ' + codename.toUpperCase() : '');
   })();
 
   // ---- status sheet: relocate stats/state-rows/missions so they stay reachable on phones ----
