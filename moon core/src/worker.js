@@ -610,6 +610,143 @@ async function addMissionDomain(request, auth, env) {
   } catch (e) { return err('domain already exists', 409); }
 }
 
+// ============================================================
+// THE ACADEMY (v0.6o) — attributes + tests
+// ============================================================
+// Orion reads and writes these himself through tool-use. There is no
+// operator-facing panel and no operator-facing write path: the operator
+// cannot hand themselves a level. A level moves when the teacher says it
+// moves, and only then.
+//
+// The taxonomy is open. Attribute rows are created on first test, so the
+// set of things being learned is whatever Orion has actually decided to
+// teach — nothing is pre-seeded.
+//
+// level == tests_passed, always. It is derived, not independently set,
+// so the counter and the notch count can never drift apart.
+// ============================================================
+
+function cleanSlug(raw) {
+  if (!raw || typeof raw !== 'string') return '';
+  return raw.toLowerCase().trim().replace(/[^a-z0-9_]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '').slice(0, 40);
+}
+
+async function listAttributes(auth, env) {
+  const r = await env.DB.prepare(
+    `SELECT id, slug, label, created_at, updated_at, level, tests_taken, tests_passed,
+            last_test_at, last_pass_at, status
+       FROM attributes WHERE operator_id = ? ORDER BY slug`
+  ).bind(auth.operatorId).all();
+  return json({ attributes: r.results || [] });
+}
+
+async function recordAttributeTest(request, auth, env) {
+  const body = await request.json();
+  const slug = cleanSlug(body.slug);
+  if (!slug) return err('missing or invalid slug');
+  const verdict = (body.verdict || '').toLowerCase();
+  if (verdict !== 'pass' && verdict !== 'hold') return err("verdict must be 'pass' or 'hold'");
+
+  const now = Date.now();
+  const label = (typeof body.label === 'string' && body.label.trim())
+    ? body.label.trim().slice(0, 80)
+    : slug.replace(/_/g, ' ');
+
+  // Idempotency: a replay of a call already recorded returns the original
+  // outcome and moves nothing. Levels are durable, so a retried request must
+  // never be able to advance the operator twice for one answer.
+  const clientTestId = (typeof body.client_test_id === 'string' && body.client_test_id.trim())
+    ? body.client_test_id.trim().slice(0, 120)
+    : null;
+  if (clientTestId) {
+    const prior = await env.DB.prepare(
+      `SELECT t.id, t.slug, t.verdict, t.level_after, a.label, a.tests_taken, a.tests_passed
+         FROM attribute_tests t JOIN attributes a ON a.id = t.attribute_id
+        WHERE t.operator_id = ? AND t.client_test_id = ?`
+    ).bind(auth.operatorId, clientTestId).first();
+    if (prior) {
+      return json({
+        ok: true, duplicate: true, slug: prior.slug, label: prior.label,
+        verdict: prior.verdict, level: prior.level_after, leveled_up: false,
+        attribute_created: false, tests_taken: prior.tests_taken,
+        tests_passed: prior.tests_passed, test_id: prior.id,
+      });
+    }
+  }
+
+  let attr = await env.DB.prepare(
+    'SELECT id, level, tests_taken, tests_passed FROM attributes WHERE operator_id = ? AND slug = ?'
+  ).bind(auth.operatorId, slug).first();
+
+  let created = false;
+  if (!attr) {
+    const ins = await env.DB.prepare(
+      `INSERT INTO attributes (operator_id, slug, label, created_at, updated_at, level, tests_taken, tests_passed)
+       VALUES (?, ?, ?, ?, ?, 0, 0, 0)`
+    ).bind(auth.operatorId, slug, label, now, now).run();
+    attr = { id: ins.meta?.last_row_id, level: 0, tests_taken: 0, tests_passed: 0 };
+    created = true;
+  }
+
+  const passed = verdict === 'pass';
+  const testsTaken = attr.tests_taken + 1;
+  const testsPassed = attr.tests_passed + (passed ? 1 : 0);
+  const level = testsPassed; // level IS the passed count — derived, never set independently
+
+  // The counter update and the test-log insert go out together. They are the
+  // pair that must not drift: a counter that moved without a matching test row
+  // is a level nobody can account for.
+  const updateStmt = passed
+    ? env.DB.prepare(
+        `UPDATE attributes SET level = ?, tests_taken = ?, tests_passed = ?,
+                last_test_at = ?, last_pass_at = ?, updated_at = ? WHERE id = ?`
+      ).bind(level, testsTaken, testsPassed, now, now, now, attr.id)
+    : env.DB.prepare(
+        `UPDATE attributes SET level = ?, tests_taken = ?, tests_passed = ?,
+                last_test_at = ?, updated_at = ? WHERE id = ?`
+      ).bind(level, testsTaken, testsPassed, now, now, attr.id);
+
+  const insertStmt = env.DB.prepare(
+    `INSERT INTO attribute_tests (operator_id, attribute_id, slug, created_at, verdict, topic_enc, assessment_enc, level_after, client_test_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).bind(auth.operatorId, attr.id, slug, now, verdict,
+         body.topic_enc || null, body.assessment_enc || null, level, clientTestId);
+
+  const batched = await env.DB.batch([updateStmt, insertStmt]);
+  const t = batched[1];
+
+  return json({
+    ok: true,
+    slug,
+    label,
+    verdict,
+    level,
+    leveled_up: passed,
+    attribute_created: created,
+    tests_taken: testsTaken,
+    tests_passed: testsPassed,
+    test_id: t.meta?.last_row_id,
+  });
+}
+
+async function listAttributeTests(url, auth, env) {
+  const slug = cleanSlug(url.searchParams.get('slug') || '');
+  // Garbage in the query string must not reach LIMIT — SQLite treats a
+  // negative limit as unbounded, and NaN would fail the bind.
+  const rawLimit = parseInt(url.searchParams.get('limit') || '20', 10);
+  const limit = Math.min(Math.max(Number.isFinite(rawLimit) ? rawLimit : 20, 1), 100);
+  let q = `SELECT id, slug, created_at, verdict, topic_enc, assessment_enc, level_after
+             FROM attribute_tests WHERE operator_id = ?`;
+  const b = [auth.operatorId];
+  if (slug) { q += ' AND slug = ?'; b.push(slug); }
+  // id breaks the tie: two tests recorded inside the same millisecond would
+  // otherwise come back in an undefined order, and history that reshuffles is
+  // worse than history that is merely coarse.
+  q += ' ORDER BY created_at DESC, id DESC LIMIT ?'; b.push(limit);
+  const r = await env.DB.prepare(q).bind(...b).all();
+  return json({ tests: r.results || [] });
+}
+
 async function listEvolution(url, auth, env) {
   const unackOnly = url.searchParams.get('unack') === '1';
   const limit = Math.min(parseInt(url.searchParams.get('limit') || '20'), 100);
@@ -660,7 +797,7 @@ export default {
     const method = request.method;
     try {
       // Public
-      if (path === '/health') return json({ ok: true, service: 'moon-core', version: '0.6l-window', time: Date.now() });
+      if (path === '/health') return json({ ok: true, service: 'moon-core', version: '0.6o-academy', supports_academy: true, time: Date.now() });
       if (path === '/awaken' && method === 'POST') return awaken(request, env);
       if (path === '/recognize' && method === 'POST') return recognize(request, env);
       if (path === '/recover' && method === 'POST') return recover(request, env);
@@ -698,6 +835,13 @@ export default {
       if (path === '/mission' && method === 'POST') return addMissionDomain(request, auth, env);
       const xm = path.match(/^\/mission\/([a-z0-9_]+)$/);
       if (xm && method === 'PUT') return putMission(xm[1], request, auth, env);
+
+      // The Academy (v0.6o) — attributes Orion tests against.
+      // NOTE: /attributes/tests is matched BEFORE /attributes/test so the
+      // plural history route is never swallowed by the singular write route.
+      if (path === '/attributes' && method === 'GET') return listAttributes(auth, env);
+      if (path === '/attributes/tests' && method === 'GET') return listAttributeTests(url, auth, env);
+      if (path === '/attributes/test' && method === 'POST') return recordAttributeTest(request, auth, env);
 
       // Evolution
       if (path === '/evolution' && method === 'GET') return listEvolution(url, auth, env);

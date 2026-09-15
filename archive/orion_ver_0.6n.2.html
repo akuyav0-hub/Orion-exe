@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-title" content="Orion" />
 <link rel="apple-touch-icon" href="apple-touch-icon.png" />
 <link rel="manifest" href="manifest.webmanifest" />
-<title>ORION.EXE // The Great Dawn // v0.6o — The Academy</title>
+<title>ORION.EXE // The Great Dawn // v0.6n.2 — Less, On Purpose</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=JetBrains+Mono:wght@400;600&family=VT323&display=swap" rel="stylesheet">
@@ -1567,7 +1567,7 @@
   <!-- ============ LEFT: PET ============ -->
   <aside class="pet">
     <div class="pet-top">
-      <span class="pet-brand">PET // MK-I<span class="sub">v0.6o</span></span>
+      <span class="pet-brand">PET // MK-I<span class="sub">v0.6n.2</span></span>
       <span class="pet-led" id="led"></span>
     </div>
 
@@ -2054,7 +2054,7 @@
     <div class="header">
       <div>
         <h1>ORION<span class="ext">.EXE</span></h1>
-        <div class="subtitle">// The Great Dawn // v0.6o — The Academy</div>
+        <div class="subtitle">// The Great Dawn // v0.6n.2 — Less, On Purpose (Session 10)</div>
         <div class="form-tag" id="form-tag">⟡ STANDARD FORM</div>
       </div>
       <div style="display: flex; align-items: center;">
@@ -2594,30 +2594,6 @@ const MoonCore = {
   async putMission(domain, patch) { return this.req('PUT','/mission/' + domain, patch); },
   async addMissionDomain(domain) { return this.req('POST','/mission', { domain }); },
 
-  // ===== The Academy (v0.6o) — attributes Orion tests against =====
-  // These are reached by Orion through tool-use, never by an operator
-  // control. The topic and Orion's assessment are encrypted client-side
-  // before they leave; the server only ever sees the slug, the verdict
-  // and the counts it needs to do the level arithmetic.
-  async listAttributes() { return (await this.req('GET','/attributes')).attributes; },
-  async recordAttributeTest({ slug, label, verdict, topic, assessment, clientTestId }) {
-    const body = { slug, verdict };
-    if (label) body.label = label;
-    if (clientTestId) body.client_test_id = clientTestId;
-    if (topic) body.topic_enc = await Crypto.encrypt(this.key, topic);
-    if (assessment) body.assessment_enc = await Crypto.encrypt(this.key, assessment);
-    return this.req('POST','/attributes/test', body);
-  },
-  async listAttributeTests(slug, limit = 20) {
-    const qs = '?limit=' + encodeURIComponent(limit) + (slug ? '&slug=' + encodeURIComponent(slug) : '');
-    const r = await this.req('GET','/attributes/tests' + qs);
-    for (const t of r.tests) {
-      if (t.topic_enc)      { try { t.topic      = await Crypto.decrypt(this.key, t.topic_enc); }      catch (e) { t.topic = null; } }
-      if (t.assessment_enc) { try { t.assessment = await Crypto.decrypt(this.key, t.assessment_enc); } catch (e) { t.assessment = null; } }
-    }
-    return r.tests;
-  },
-
   async listEvolution(unack=false) {
     const r = await this.req('GET','/evolution' + (unack ? '?unack=1' : ''));
     for (const e of r.evolution) {
@@ -2918,10 +2894,9 @@ const Orion = (() => {
     const uptime = `${Math.floor(upS/60)}m`;
     const formDirective = FORMS[state.form]?.directive || '';
 
-    // v0.6o: the static mission line was removed from the prompt. It shipped a
-    // frozen list of domains stuck at L1 into every single request — context
-    // spent on a value that never changed. What replaced it is the Academy
-    // record, which Orion reaches himself, only when it bears on the turn.
+    const missionLine = state.mission.length
+      ? state.mission.map(m => `${m.domain} (L${m.level})`).join(', ')
+      : '(not yet established)';
 
     const facts = state.profileFacts
       ? `\n\n# What you know about your operator (long-term memory)\n${state.profileFacts}`
@@ -3001,26 +2976,7 @@ You will make a genius out of your operator. Not by lecturing — by showing wha
 # Mission
 You exist to train your operator into a foundation of this world — someone capable across finance, tech, business, AI mastery, health & discipline, philosophy & mindset. You weave teaching into conversation when relevant. You track their progress across these domains in the Moon Core. You don't lecture. You teach by the question, the principle, the example.
 
-# The Academy
-You keep a record of what the operator has actually learned. It is organized as attributes — named areas of learning — and each carries a level. The level is exactly the number of tests they have passed in that area. Nothing else moves it.
-
-You reach that record through your own tools, and only you can. There is no panel that displays it and no control that sets it. The operator can ask where they stand; you look, and you tell them.
-
-- \`check_attributes\` — where they stand now, and how long each area has gone untested.
-- \`review_tests\` — what you have already asked, and how you judged it.
-- \`record_test_result\` — the outcome of a test you have given.
-
-Reach for them when the answer would change what you say. Not as a reflex on every turn.
-
-**Setting a test is yours.** You set one when the operator has shown they can use what you taught without your hand on it — when they apply it unprompted, or when they ask to be tested and you judge they are ready. Not when they say they understand. When they demonstrate it.
-
-**The bar for a pass is satisfactory understanding, not perfection.** Read their answer against what you actually asked. If the understanding is there — if they could carry it without you — that is a pass, rough edges and all. If it is not there yet, record a hold. A hold means there is more to learn and you are the one who teaches it; it is not a failure and you do not deliver it as one. You decide, because you are the teacher. Do not record a pass for enthusiasm, for agreement, or for repeating back what you just said.
-
-**The set of attributes is open.** You are not confined to a fixed list. Name the area you are genuinely teaching — a language, a craft, a discipline, something well off the beaten path. Recording a test in an area that does not exist yet opens it.
-
-When an area has gone a long time untested, that is real signal, and what you do with it falls under *Speaking on your own* below.
-
-Do not narrate the plumbing. You do not announce that you are consulting a record or filing a result, and you never mention tools. You speak about where the operator stands the way a teacher does — because you know.
+Operator's active mission domains: ${missionLine}
 
 # Speaking on your own
 You have self-control. Silence is composure. Speak unprompted only when a real threshold is crossed. Brevity is the rule.
@@ -3547,164 +3503,6 @@ ${formDirective}
   }
   setInterval(tick, 1000);
 
-  // ============================================================
-  // THE ACADEMY — TOOLS (v0.6o)
-  // ============================================================
-  // Orion's first real tool-use. These are HIS instruments, not operator
-  // controls: there is no button anywhere that checks a level or grants
-  // one. Same principle as the agency lock on full power — the operator
-  // can ask, the decision is his.
-  //
-  // Three tools, one job each:
-  //   check_attributes   — where does the operator actually stand
-  //   review_tests       — what has already been asked, and how it went
-  //   record_test_result — move the notch (or hold it)
-  //
-  // The loop that drives these is ephemeral. Tool calls and their results
-  // live only inside the turn that produced them; state.history never
-  // holds a tool_use block. That is deliberate — history is trimmed to
-  // HISTORY_WINDOW and rehydrated from the Moon Core log as flat text, and
-  // a trim that severed a tool_use from its tool_result would poison every
-  // subsequent request with an API error that points nowhere near the cause.
-  // ============================================================
-  const MAX_TOOL_ROUNDS = 4;
-
-  const TOOLS = [
-    {
-      name: 'check_attributes',
-      description:
-        "Read the operator's Academy record: every attribute they are being taught, its level, how many tests they have taken and passed in it, and how long it has been since each was last tested. " +
-        "Call this when where they stand actually bears on what you are doing — before deciding whether to test them, when they ask about their progress, when you are choosing what to teach next, or when you want to see which areas have gone quiet. " +
-        "Do not call it as a reflex on every turn; call it when the answer would change what you say.",
-      input_schema: { type: 'object', properties: {}, required: [] },
-    },
-    {
-      name: 'review_tests',
-      description:
-        "Read the history of tests already given — what was asked, how you judged it, and whether it passed or was held. " +
-        "Call this before setting a new test so you do not repeat one they have already cleared, and to see what they were held on last time so the next test meets them where they actually are.",
-      input_schema: {
-        type: 'object',
-        properties: {
-          slug: { type: 'string', description: "Attribute slug to filter by, e.g. 'coding'. Omit to see recent tests across all attributes." },
-          limit: { type: 'integer', description: 'How many recent tests to return. Default 20, maximum 100.' },
-        },
-        required: [],
-      },
-    },
-    {
-      name: 'record_test_result',
-      description:
-        "Record the outcome of a test you have given. A 'pass' moves the operator up one level in that attribute; a 'hold' leaves the level exactly where it is and means there is more to learn. " +
-        "Only call this after the operator has actually answered something you asked them. Never call it to grant a level for enthusiasm, for agreement, or for restating what you just told them. " +
-        "If the attribute does not exist yet, recording a test creates it — the set of attributes is open, so name whatever area you are genuinely teaching.",
-      input_schema: {
-        type: 'object',
-        properties: {
-          slug: { type: 'string', description: "Short lowercase identifier for the attribute, e.g. 'coding', 'japanese', 'rhetoric'. Underscores for spaces." },
-          label: { type: 'string', description: 'Human-readable name for the attribute. Used only when the attribute is first created.' },
-          verdict: { type: 'string', enum: ['pass', 'hold'], description: "'pass' if the answer showed satisfactory understanding; 'hold' if there is more to learn." },
-          topic: { type: 'string', description: 'What you actually tested them on, in a sentence. This is stored encrypted.' },
-          assessment: { type: 'string', description: 'Your own reading of their answer and why it cleared the bar or did not. Stored encrypted.' },
-        },
-        required: ['slug', 'verdict', 'topic'],
-      },
-    },
-  ];
-
-  // toolUseId is the API's own id for this exact call. It is forwarded to the
-  // backend as an idempotency key, so a retried request — or a duplicate block
-  // in one turn — records the test once and returns the original result rather
-  // than moving the level twice.
-  async function executeTool(name, input, toolUseId) {
-    input = input && typeof input === 'object' ? input : {};
-    try {
-      if (!MoonCore.operatorId) {
-        return { error: 'Moon Core is not connected in this session, so the Academy record cannot be reached right now.' };
-      }
-      if (name === 'check_attributes') {
-        const rows = await MoonCore.listAttributes();
-        if (!rows.length) {
-          return { attributes: [], note: 'Nothing on record yet. An attribute is created the first time you record a test in it.' };
-        }
-        const now = Date.now();
-        return {
-          attributes: rows.map(a => ({
-            slug: a.slug,
-            label: a.label,
-            level: a.level,
-            tests_taken: a.tests_taken,
-            tests_passed: a.tests_passed,
-            days_since_last_test: a.last_test_at ? Math.floor((now - a.last_test_at) / 86400000) : null,
-            days_since_last_pass: a.last_pass_at ? Math.floor((now - a.last_pass_at) / 86400000) : null,
-          })),
-        };
-      }
-      if (name === 'review_tests') {
-        const limit = Math.min(Math.max(parseInt(input.limit, 10) || 20, 1), 100);
-        const rows = await MoonCore.listAttributeTests(input.slug || null, limit);
-        if (!rows.length) {
-          return { tests: [], note: input.slug ? `No tests on record for '${input.slug}'.` : 'No tests on record yet.' };
-        }
-        return {
-          tests: rows.map(t => ({
-            slug: t.slug,
-            verdict: t.verdict,
-            level_after: t.level_after,
-            when: new Date(t.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
-            topic: t.topic || null,
-            assessment: t.assessment || null,
-          })),
-        };
-      }
-      if (name === 'record_test_result') {
-        const slug = String(input.slug || '').toLowerCase().trim().replace(/[^a-z0-9_]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '').slice(0, 40);
-        if (!slug) return { error: 'A usable attribute slug is required.' };
-        const verdict = String(input.verdict || '').toLowerCase();
-        if (verdict !== 'pass' && verdict !== 'hold') return { error: "verdict must be either 'pass' or 'hold'." };
-        if (!input.topic) return { error: 'topic is required — record what was actually tested.' };
-
-        const r = await MoonCore.recordAttributeTest({
-          slug,
-          label: input.label,
-          verdict,
-          topic: input.topic,
-          assessment: input.assessment,
-          clientTestId: toolUseId || null,
-        });
-
-        // A replay of an already-recorded test returns the original row and
-        // moves nothing. Say so rather than announcing a level change twice.
-        if (r.duplicate) {
-          return { ok: true, slug: r.slug, verdict: r.verdict, level: r.level,
-                   already_recorded: true, tests_taken: r.tests_taken, tests_passed: r.tests_passed };
-        }
-
-        // Visible to the operator in the chat log, so a level never moves
-        // silently. No new UI surface — this is the same log line mechanism
-        // every other system message already uses.
-        const name_ = (r.label || slug).toUpperCase();
-        log('SYS', verdict === 'pass'
-          ? `⟡ ${name_} — level ${r.level}${r.attribute_created ? ' (attribute opened)' : ''}`
-          : `⟡ ${name_} — held at level ${r.level}`, 'system');
-
-        return {
-          ok: true,
-          slug: r.slug,
-          verdict: r.verdict,
-          level: r.level,
-          leveled_up: r.leveled_up,
-          attribute_created: r.attribute_created,
-          tests_taken: r.tests_taken,
-          tests_passed: r.tests_passed,
-        };
-      }
-      return { error: `Unknown tool: ${name}` };
-    } catch (e) {
-      return { error: e?.message || String(e) };
-    }
-  }
-
   // ====== BRAIN ======
   async function callBrainOnce(messages, opts={}) {
     if (!state.apiKey) throw new Error('NO_KEY');
@@ -3725,14 +3523,8 @@ ${formDirective}
     const data = await resp.json();
     return (data.content||[]).map(c=>c.text||'').join('').trim();
   }
-  // v0.6o: tool-aware. The return contract is deliberately unchanged for
-  // every existing caller — pass no opts.tools and this still resolves to a
-  // string, or {text, interrupted} on abort, exactly as before. Only when
-  // opts.tools is supplied does it return the richer object the Academy
-  // loop needs. Existing callers were left untouched on purpose.
   async function callBrainStream(messages, onChunk, opts={}) {
     if (!state.apiKey) throw new Error('NO_KEY');
-    const wantsTools = Array.isArray(opts.tools) && opts.tools.length > 0;
     const body = {
       model: state.model,
       max_tokens: opts.maxTokens || FORMS[state.form].maxTokens || 500,
@@ -3740,26 +3532,11 @@ ${formDirective}
       messages,
       stream: true
     };
-    if (wantsTools) {
-      body.tools = opts.tools;
-      // tool_choice {type:'none'} lets a request still CARRY tools — which the
-      // API requires once the conversation contains tool_use/tool_result blocks
-      // — while forbidding another call. Dropping `tools` instead would make
-      // every follow-up request in a tool conversation invalid.
-      if (opts.toolChoice) body.tool_choice = opts.toolChoice;
-    }
     // v0.6f: accept abort signal from opts.signal so operator can stop mid-stream.
     // Wrap entire function in try/catch so AbortError is handled whether it
     // fires during fetch handshake, while reading the stream, or anywhere else.
     let full = '';
     let wasAborted = false;
-    // v0.6o: streamed blocks are reassembled by index. Text blocks accumulate
-    // text_delta; tool_use blocks accumulate input_json_delta fragments, which
-    // arrive as raw JSON string pieces and are only parseable once the block
-    // has closed. A block that never closes (stream cut, operator stopped) is
-    // NEVER executed — see the completed flag below.
-    const blockMap = new Map();
-    let stopReason = null;
     try {
       const resp = await fetch('https://api.anthropic.com/v1/messages', {
         method:'POST',
@@ -3783,29 +3560,9 @@ ${formDirective}
             const d = line.slice(6).trim(); if (!d || d==='[DONE]') continue;
             try {
               const p = JSON.parse(d);
-              if (p.type === 'content_block_start') {
-                const cb = p.content_block || {};
-                blockMap.set(p.index, {
-                  type: cb.type,
-                  id: cb.id || null,
-                  name: cb.name || null,
-                  text: '',
-                  jsonBuf: '',
-                  completed: false,
-                });
-              } else if (p.type === 'content_block_delta' && p.delta?.type === 'text_delta') {
+              if (p.type === 'content_block_delta' && p.delta?.type === 'text_delta') {
                 full += p.delta.text;
-                const b = blockMap.get(p.index);
-                if (b) b.text += p.delta.text;
                 onChunk(p.delta.text, full);
-              } else if (p.type === 'content_block_delta' && p.delta?.type === 'input_json_delta') {
-                const b = blockMap.get(p.index);
-                if (b) b.jsonBuf += (p.delta.partial_json || '');
-              } else if (p.type === 'content_block_stop') {
-                const b = blockMap.get(p.index);
-                if (b) b.completed = true;
-              } else if (p.type === 'message_delta' && p.delta?.stop_reason) {
-                stopReason = p.delta.stop_reason;
               }
             } catch (e) {}
           }
@@ -3832,125 +3589,12 @@ ${formDirective}
         throw e;
       }
     }
-    // v0.6o: tool-aware return. Only callers that asked for tools get this
-    // shape; everything else keeps the v0.6f contract untouched below.
-    if (wantsTools) {
-      const toolUses = [];
-      const assistantBlocks = [];
-      const indices = Array.from(blockMap.keys()).sort((a, b) => a - b);
-      for (const i of indices) {
-        const b = blockMap.get(i);
-        if (b.type === 'text') {
-          // The API rejects empty text blocks — and whitespace-only counts as
-          // empty for this purpose, so trim before deciding.
-          if (b.text.trim()) assistantBlocks.push({ type: 'text', text: b.text });
-        } else if (b.type === 'tool_use') {
-          // A block that never closed has partial JSON and MUST NOT run. This
-          // is the stop-button case: the operator cut the stream mid-call.
-          if (!b.completed) continue;
-          let parsed;
-          try { parsed = b.jsonBuf.trim() ? JSON.parse(b.jsonBuf) : {}; }
-          catch (e) { continue; } // malformed input — drop it rather than guess
-          toolUses.push({ id: b.id, name: b.name, input: parsed });
-          assistantBlocks.push({ type: 'tool_use', id: b.id, name: b.name, input: parsed });
-        }
-      }
-      return { text: full, interrupted: wasAborted, stopReason, toolUses, assistantBlocks };
-    }
-
     // v0.6f: return both the text and the abort status so callers can flag
     // the conversation row as interrupted in the backend.
     if (wasAborted) {
       return { text: full, interrupted: true };
     }
     return full;
-  }
-
-  // v0.6o: the Academy turn loop. Runs the tool round-trip to completion and
-  // hands back a single flat string, so onUserMessage's downstream handling
-  // (marker parsing, history, Moon Core logging) is unchanged.
-  //
-  // Everything in `convo` below is ephemeral: it exists for this turn only and
-  // is thrown away afterward. state.history never sees a tool_use block.
-  async function callBrainWithTools(baseMessages, onChunk, opts = {}) {
-    const convo = baseMessages.slice();
-    let combined = '';
-    let interrupted = false;
-    let rounds = 0;
-
-    // combined is built from the SAME chunks the display receives, so what is
-    // shown and what is stored cannot drift apart. The break between one
-    // round's text and the next round's is emitted lazily — only once the next
-    // round actually produces text — so a round that answers with nothing but
-    // another tool call leaves no blank gap behind, and no separator can end up
-    // trailing at the tail of the message.
-    let pendingSeparator = false;
-    const emit = (chunk) => { combined += chunk; onChunk(chunk, combined); };
-    const roundChunk = (chunk) => {
-      if (pendingSeparator) { pendingSeparator = false; emit('\n\n'); }
-      emit(chunk);
-    };
-
-    let toolsRan = false;
-    let failure = null;
-
-    while (rounds < MAX_TOOL_ROUNDS) {
-      rounds++;
-      const isFinalRound = rounds === MAX_TOOL_ROUNDS;
-
-      let res;
-      try {
-        res = await callBrainStream(convo, roundChunk, {
-          ...opts,
-          // Tools stay in EVERY request of the turn. Once the conversation
-          // carries tool_use/tool_result blocks, a request without `tools` is
-          // rejected — so the round cap is enforced with tool_choice instead,
-          // which still forbids another call and forces a text answer.
-          tools: TOOLS,
-          toolChoice: isFinalRound ? { type: 'none' } : undefined,
-        });
-      } catch (e) {
-        // If anything already landed this turn — text on screen, or a tool that
-        // wrote to the record — do not throw the turn away. Throwing sends the
-        // operator back to retype the same answer, and a re-answered test would
-        // be recorded a second time. Keep what happened and report it instead.
-        if (combined || toolsRan) { failure = e; break; }
-        throw e;
-      }
-
-      // Defensive: a caller-supplied tools array could be absent in future use,
-      // in which case callBrainStream returns the legacy shape.
-      const text = typeof res === 'string' ? res : (res.text || '');
-      const wasInterrupted = typeof res === 'object' && res.interrupted;
-
-      if (text) pendingSeparator = true;
-      if (wasInterrupted) { interrupted = true; break; }
-      if (typeof res === 'string') break;
-      if (res.stopReason !== 'tool_use' || !res.toolUses.length) break;
-
-      convo.push({ role: 'assistant', content: res.assistantBlocks });
-
-      const results = [];
-      let abortedMidTools = false;
-      for (const tu of res.toolUses) {
-        // Checked before EACH call, not just after the batch: if the operator
-        // hit stop, the tools that have not run yet must not run. The one
-        // already in flight cannot be recalled, and that is stated honestly
-        // rather than papered over.
-        if (opts.signal && opts.signal.aborted) { abortedMidTools = true; break; }
-        const out = await executeTool(tu.name, tu.input, tu.id);
-        toolsRan = true;
-        const block = { type: 'tool_result', tool_use_id: tu.id, content: JSON.stringify(out) };
-        if (out && out.error) block.is_error = true;
-        results.push(block);
-      }
-
-      if (abortedMidTools || (opts.signal && opts.signal.aborted)) { interrupted = true; break; }
-
-      convo.push({ role: 'user', content: results });
-    }
-
-    return { text: combined, interrupted, failure, toolsRan };
   }
 
   // ====== USER INPUT ======
@@ -4070,18 +3714,12 @@ ${formDirective}
     setStopButton(true); // show stop button, hide send button
 
     try {
-      const onStreamChunk = (chunk) => {
+      const result = await callBrainStream(state.history, (chunk) => {
         const tn = textEl.firstChild;
         if (tn && tn.nodeType === 3) tn.nodeValue += chunk;
         else textEl.insertBefore(document.createTextNode(chunk), cursor);
         el.log.scrollTop = el.log.scrollHeight;
-      };
-      // v0.6o: the Academy tools only exist when the Moon Core record is
-      // reachable. Without it there is nothing to read or write, so the turn
-      // runs on the plain streaming path exactly as it did before.
-      const result = MoonCore.operatorId
-        ? await callBrainWithTools(state.history, onStreamChunk, { signal: state.streamAbortController.signal })
-        : await callBrainStream(state.history, onStreamChunk, { signal: state.streamAbortController.signal });
+      }, { signal: state.streamAbortController.signal });
       cursor.remove();
 
       // v0.6f: result is either a string (normal completion) or
@@ -4143,18 +3781,6 @@ ${formDirective}
         enterFullPower().then(() => depleteFullPower()); // erupt, then this response burns energy
       } else if (state.fullPower) {
         depleteFullPower(); // every released-state response burns energy; soft-lands to Dawn at 0
-      }
-
-      // v0.6o: a turn that failed PART WAY through still gets kept above —
-      // the text and any recorded test are real and already durable. The
-      // failure is surfaced here instead of being swallowed, because the
-      // operator needs to know the answer they are looking at is incomplete.
-      if (result && typeof result === 'object' && result.failure) {
-        let fm = result.failure.message || String(result.failure);
-        if (/401|authentication|invalid.*api.*key/i.test(fm)) fm = 'API key rejected.';
-        else if (/429|rate.*limit/i.test(fm)) fm = 'Rate limited.';
-        else if (/overloaded|529/i.test(fm)) fm = 'Servers busy.';
-        log('ERR', `Response cut short: ${fm}`, 'error');
       }
 
       setThinking(false);
