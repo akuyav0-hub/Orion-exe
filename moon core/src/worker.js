@@ -631,13 +631,90 @@ function cleanSlug(raw) {
   return raw.toLowerCase().trim().replace(/[^a-z0-9_]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '').slice(0, 40);
 }
 
+// The single honest view. Orion's words: "the number is a receipt; the topics
+// and assessments underneath it are the actual record," and the honest answer to
+// "where do I stand" is what you cleared, what you were held on, and what has not
+// been touched in a while. That answer used to take two reaches — levels here,
+// holds from the history — which made the shallow answer free and the true one
+// cost extra. Things that cost extra get skipped exactly when they matter. So the
+// last test and the last hold, with their topics, come back with the levels.
 async function listAttributes(auth, env) {
   const r = await env.DB.prepare(
     `SELECT id, slug, label, created_at, updated_at, level, tests_taken, tests_passed,
             last_test_at, last_pass_at, status
        FROM attributes WHERE operator_id = ? ORDER BY slug`
   ).bind(auth.operatorId).all();
-  return json({ attributes: r.results || [] });
+  const attributes = r.results || [];
+  if (!attributes.length) return json({ attributes });
+
+  // Most recent test per attribute, and most recent HOLD per attribute. The id
+  // tiebreak matters for the same reason it does in the history listing: two rows
+  // in one millisecond must not come back in an undefined order.
+  const latest = await env.DB.prepare(
+    `SELECT attribute_id, verdict, topic_enc, created_at FROM (
+       SELECT attribute_id, verdict, topic_enc, created_at,
+              ROW_NUMBER() OVER (PARTITION BY attribute_id ORDER BY created_at DESC, id DESC) rn
+         FROM attribute_tests WHERE operator_id = ?
+     ) WHERE rn = 1`
+  ).bind(auth.operatorId).all();
+  const latestHold = await env.DB.prepare(
+    `SELECT attribute_id, topic_enc, created_at FROM (
+       SELECT attribute_id, topic_enc, created_at,
+              ROW_NUMBER() OVER (PARTITION BY attribute_id ORDER BY created_at DESC, id DESC) rn
+         FROM attribute_tests WHERE operator_id = ? AND verdict = 'hold'
+     ) WHERE rn = 1`
+  ).bind(auth.operatorId).all();
+
+  const byId = new Map(), holdById = new Map();
+  for (const row of (latest.results || [])) byId.set(row.attribute_id, row);
+  for (const row of (latestHold.results || [])) holdById.set(row.attribute_id, row);
+  for (const a of attributes) {
+    const t = byId.get(a.id), h = holdById.get(a.id);
+    a.last_test = t ? { verdict: t.verdict, topic_enc: t.topic_enc, created_at: t.created_at } : null;
+    a.last_hold = h ? { topic_enc: h.topic_enc, created_at: h.created_at } : null;
+  }
+  return json({ attributes });
+}
+
+// Renaming is the one operation that can rewrite the past: every test recorded
+// under the old label retroactively becomes a test in the new one. It is gated
+// hard on the operator's own typed instruction — Orion has no tool for this and
+// cannot trigger it. He flags, the operator decides, and only then does it move.
+// Refuses rather than merging: folding two attributes together would silently
+// reshape what the record says happened, which is a separate decision entirely.
+async function renameAttribute(slug, request, auth, env) {
+  const body = await request.json();
+  const from = cleanSlug(slug);
+  const to = cleanSlug(body.new_slug || '');
+  if (!from || !to) return err('both the current and the new slug are required');
+
+  const existing = await env.DB.prepare(
+    'SELECT id, label FROM attributes WHERE operator_id = ? AND slug = ?'
+  ).bind(auth.operatorId, from).first();
+  if (!existing) return err(`no attribute named '${from}'`, 404);
+
+  if (to !== from) {
+    const collision = await env.DB.prepare(
+      'SELECT id FROM attributes WHERE operator_id = ? AND slug = ?'
+    ).bind(auth.operatorId, to).first();
+    if (collision) {
+      return err(`'${to}' already exists — renaming into it would merge two records, which is a separate decision. Pick a free name.`, 409);
+    }
+  }
+
+  const label = (typeof body.new_label === 'string' && body.new_label.trim())
+    ? body.new_label.trim().slice(0, 80)
+    : to.replace(/_/g, ' ');
+  const now = Date.now();
+
+  await env.DB.batch([
+    env.DB.prepare('UPDATE attributes SET slug = ?, label = ?, updated_at = ? WHERE id = ?')
+      .bind(to, label, now, existing.id),
+    env.DB.prepare('UPDATE attribute_tests SET slug = ? WHERE operator_id = ? AND attribute_id = ?')
+      .bind(to, auth.operatorId, existing.id),
+  ]);
+
+  return json({ ok: true, from, to, label, previous_label: existing.label });
 }
 
 async function recordAttributeTest(request, auth, env) {
@@ -715,7 +792,7 @@ async function recordAttributeTest(request, auth, env) {
   const batched = await env.DB.batch([updateStmt, insertStmt]);
   const t = batched[1];
 
-  return json({
+  const payload = {
     ok: true,
     slug,
     label,
@@ -726,7 +803,22 @@ async function recordAttributeTest(request, auth, env) {
     tests_taken: testsTaken,
     tests_passed: testsPassed,
     test_id: t.meta?.last_row_id,
-  });
+  };
+
+  // THE GUARDRAIL. Opening a new attribute hands back everything already open.
+  // The failure this catches is not a lapse in discipline — it is coining fresh
+  // language that feels correct, which is reconstruction-from-plausibility
+  // wearing a different coat. Seeing the open list at the moment of creation
+  // catches it while it is still cheap, and costs nothing when the check already
+  // happened: the expected names simply appear.
+  if (created) {
+    const others = await env.DB.prepare(
+      'SELECT slug, label, level FROM attributes WHERE operator_id = ? AND slug != ? ORDER BY slug'
+    ).bind(auth.operatorId, slug).all();
+    payload.already_open = (others.results || []);
+  }
+
+  return json(payload);
 }
 
 async function listAttributeTests(url, auth, env) {
@@ -797,7 +889,7 @@ export default {
     const method = request.method;
     try {
       // Public
-      if (path === '/health') return json({ ok: true, service: 'moon-core', version: '0.6o-academy', supports_academy: true, time: Date.now() });
+      if (path === '/health') return json({ ok: true, service: 'moon-core', version: '0.6p-academy', supports_academy: true, supports_rename: true, time: Date.now() });
       if (path === '/awaken' && method === 'POST') return awaken(request, env);
       if (path === '/recognize' && method === 'POST') return recognize(request, env);
       if (path === '/recover' && method === 'POST') return recover(request, env);
@@ -842,6 +934,8 @@ export default {
       if (path === '/attributes' && method === 'GET') return listAttributes(auth, env);
       if (path === '/attributes/tests' && method === 'GET') return listAttributeTests(url, auth, env);
       if (path === '/attributes/test' && method === 'POST') return recordAttributeTest(request, auth, env);
+      const attrRename = path.match(/^\/attributes\/([a-z0-9_]+)\/rename$/);
+      if (attrRename && method === 'POST') return renameAttribute(attrRename[1], request, auth, env);
 
       // Evolution
       if (path === '/evolution' && method === 'GET') return listEvolution(url, auth, env);
