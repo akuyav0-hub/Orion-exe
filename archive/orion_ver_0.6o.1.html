@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-title" content="Orion" />
 <link rel="apple-touch-icon" href="apple-touch-icon.png" />
 <link rel="manifest" href="manifest.webmanifest" />
-<title>ORION.EXE // The Great Dawn // v0.6o.2 — The Seam</title>
+<title>ORION.EXE // The Great Dawn // v0.6o.1 — The Seam</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=JetBrains+Mono:wght@400;600&family=VT323&display=swap" rel="stylesheet">
@@ -1337,17 +1337,10 @@
     #pet-sheet-body .readouts { display: grid; }
     #pet-sheet-body .meta-row { display: flex; }
     #pet-sheet-body .mission-panel { display: block; }
-    /* v0.6o.2: a wrapped flex container stretches its single line to the cross
-       size, so every button in the sheet was rendering ~120px tall — almost three
-       times its own tap target, with the label marooned in the middle of an empty
-       slab. flex-start on BOTH axes lets each button be exactly as tall as it
-       needs to be. min-height stays 44px: that is the iOS minimum tap target, and
-       "sleeker" must not mean "harder to hit with a thumb". */
-    #pet-sheet-body .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-start; align-content: flex-start; }
-    #pet-sheet-body .controls .btn { flex: 1 1 44%; min-height: 44px; height: 44px; padding: 0 10px; letter-spacing: 0.14em; }
-    #pet-sheet-body .sheet-pane { gap: 10px; }
+    #pet-sheet-body .controls { display: flex; flex-wrap: wrap; gap: 8px; }
+    #pet-sheet-body .controls .btn { flex: 1 1 44%; min-height: 44px; }
     #pet-sheet-body .info { display: block; font-size: 12px; }
-    #pet-sheet-tabs { display: flex; gap: 5px; flex: 0 0 auto; margin-bottom: 8px; }
+    #pet-sheet-tabs { display: flex; gap: 6px; flex: 0 0 auto; margin-bottom: 10px; }
     .sheet-tab {
       flex: 1 1 0; min-width: 0; min-height: 40px; padding: 0 4px;
       border-radius: 8px; cursor: pointer;
