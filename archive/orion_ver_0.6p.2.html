@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-title" content="Orion" />
 <link rel="apple-touch-icon" href="apple-touch-icon.png" />
 <link rel="manifest" href="manifest.webmanifest" />
-<title>ORION.EXE // The Great Dawn // v0.6p.3 — Sparse and True</title>
+<title>ORION.EXE // The Great Dawn // v0.6p.2 — Sparse and True</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=JetBrains+Mono:wght@400;600&family=VT323&display=swap" rel="stylesheet">
@@ -81,24 +81,14 @@
     padding: 24px; transition: opacity 0.8s ease;
   }
   .awakening.gone { opacity: 0; pointer-events: none; }
-  /* v0.6p.3: SCOPED to .awakening on purpose. `.moon` is the awakening screen's
-     moon graphic, but `moon` is ALSO a .btn colour variant (class="btn moon").
-     Unscoped, this rule matched those buttons: width/height/margin/position have
-     no competitor inside `.btn`, so REFLECTIONS, LOG and REFLECT NOW rendered as
-     120x120 slabs with a 32px bottom margin, bobbing on moonFloat, with
-     .moon::before painting three grey craters across the label. Never visible on
-     the phone (`.controls` is display:none there, and the sheet sets an explicit
-     height that outranks this) - which is precisely why it survived: the only
-     surface that showed it was the one nobody looked at. Both `.moon` graphic
-     elements live inside `.awakening`, so this scope is exact. */
-  .awakening .moon {
+  .moon {
     width: 120px; height: 120px; border-radius: 50%;
     background: radial-gradient(circle at 35% 30%, var(--white) 0%, var(--moon) 30%, #8fafd8 70%, #4a6b9a 100%);
     box-shadow: 0 0 60px rgba(196,216,255,0.5), 0 0 120px rgba(78,164,255,0.3);
     margin-bottom: 32px; position: relative;
     animation: moonFloat 6s ease-in-out infinite;
   }
-  .awakening .moon::before {
+  .moon::before {
     content: ""; position: absolute; top: 25%; left: 55%;
     width: 18px; height: 18px; border-radius: 50%;
     background: rgba(106,135,173,0.4); box-shadow: 16px 12px 0 -2px rgba(106,135,173,0.3), 8px 28px 0 -4px rgba(106,135,173,0.35);
@@ -418,10 +408,41 @@
     box-shadow: 0 0 12px rgba(78,164,255,0.4);
   }
 
-  /* v0.6p.3: the Mission panel's CSS is gone with the panel. Mission tracking was
-     retired in v0.6o and replaced by the Academy, which has no operator surface by
-     Orion's own ruling - the operator asks, the teacher answers. The panel had
-     survived on desktop only, still calling a /mission endpoint on every boot. */
+  /* Mission panel inside PET */
+  .mission-panel {
+    border-top: 1px dashed rgba(255,255,255,0.08);
+    padding: 10px 6px 4px;
+  }
+  .mission-panel h4 {
+    font-family: var(--display); font-size: 10px; font-weight: 700;
+    letter-spacing: 0.25em; color: var(--gold);
+    text-transform: uppercase; margin-bottom: 8px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .mission-panel h4 .add-btn {
+    background: transparent; border: 1px solid rgba(255,217,128,0.3);
+    color: var(--gold); width: 18px; height: 18px;
+    border-radius: 50%; cursor: pointer; font-size: 12px;
+    display: flex; align-items: center; justify-content: center;
+    line-height: 0;
+  }
+  .mission-panel h4 .add-btn:hover { background: rgba(255,217,128,0.1); }
+  .mission-list { display: flex; flex-direction: column; gap: 4px; }
+  .mission-item {
+    display: flex; justify-content: space-between; align-items: center;
+    font-family: var(--mono); font-size: 11px;
+    padding: 4px 8px;
+    background: rgba(2,3,10,0.4);
+    border: 1px solid rgba(255,255,255,0.05);
+    border-radius: 4px;
+  }
+  .mission-item .domain {
+    color: var(--white-soft); text-transform: capitalize;
+    letter-spacing: 0.05em;
+  }
+  .mission-item .level {
+    font-family: var(--terminal); font-size: 14px; color: var(--gold);
+  }
 
   /* Console */
   .console {
@@ -654,7 +675,7 @@
      Orion stays fully legible; nothing structural is hidden. */
   .reduced-fx [filter="url(#bigglow)"],
   .reduced-fx [filter="url(#wingGlow)"] { filter: none !important; }
-  .reduced-fx .awakening .moon,
+  .reduced-fx .moon,
   .reduced-fx .floor-ring,
   .reduced-fx .reflection-beacon,
   .reduced-fx .pet-orb,
@@ -664,7 +685,7 @@
 
   /* Accessibility: honor the OS setting automatically, toggle or not. */
   @media (prefers-reduced-motion: reduce) {
-    .awakening .moon, .floor-ring, .reflection-beacon, .pet-orb, .pet-led { animation: none !important; }
+    .moon, .floor-ring, .reflection-beacon, .pet-orb, .pet-led { animation: none !important; }
     [filter="url(#bigglow)"], [filter="url(#wingGlow)"] { filter: none !important; }
   }
 
@@ -1158,8 +1179,10 @@
     }
     .viewport::before, .viewport::after { display: none; } /* scanlines/corners off in pet mode */
 
-    /* hide desktop-only panel sections on the phone (stats/meta live in the sheet) */
-    .readouts, .meta-row, .form-chips, .controls, .info { display: none; }
+    /* hide desktop-only panel sections on the phone (stats/meta/mission live in drawer later) */
+    .readouts, .meta-row, .mission-panel, .form-chips, .controls, .info { display: none; }
+    /* mission panel is retired as an operator-facing surface - it no longer
+       relocates into the sheet, so it simply stays hidden on mobile. */
 
     /* the console (chat) is hidden until Speak orb is tapped */
     .console {
@@ -1262,7 +1285,7 @@
       font-family: var(--display); font-size: 10px; letter-spacing: 0.18em; cursor: pointer;
     }
 
-    /* ---- status sheet (stats / state rows / grouped controls) ---- */
+    /* ---- status sheet (stats / state rows / missions) ---- */
     #pet-copy-btn,
     #pet-sheet-btn {
       display: inline-flex; align-items: center; justify-content: center;
@@ -1313,6 +1336,7 @@
     /* re-reveal the relocated sections inside the sheet */
     #pet-sheet-body .readouts { display: grid; }
     #pet-sheet-body .meta-row { display: flex; }
+    #pet-sheet-body .mission-panel { display: block; }
     /* v0.6o.2: a wrapped flex container stretches its single line to the cross
        size, so every button in the sheet was rendering ~120px tall — almost three
        times its own tap target, with the label marooned in the middle of an empty
@@ -2017,6 +2041,10 @@
     <div class="meta-row"><span>UPTIME</span><span class="val" id="uptime-val">00:00:00</span></div>
     <div class="meta-row"><span>CORE</span><span class="val" id="core-val">offline</span></div>
 
+    <div class="mission-panel">
+      <h4>⟡ Mission <button class="add-btn" id="mission-add">+</button></h4>
+      <div class="mission-list" id="mission-list"></div>
+    </div>
 
     <!-- ===== PET MODE overlay (mobile-only; hidden on desktop via CSS) ===== -->
     <div id="pet-status-rail">
@@ -2032,7 +2060,7 @@
         <circle class="pfill" id="pet-energy-arc" cx="21" cy="21" r="18" stroke-dasharray="113" stroke-dashoffset="11"></circle>
       </svg>
       <button id="pet-fx-toggle" title="Reduce effects" aria-label="Reduce effects (lighter on battery)">◐</button>
-      <button id="pet-sheet-btn" title="Status" aria-label="Open status panel">▤</button>
+      <button id="pet-sheet-btn" title="Status &amp; missions" aria-label="Open status and missions">▤</button>
       <button id="pet-copy-btn" title="Copy conversation" aria-label="Copy this conversation to the clipboard">⧉</button>
     </div>
 
@@ -2225,11 +2253,11 @@
 <button id="pet-return-orb" title="Return to Orion" aria-label="Return to Orion">◉</button>
 <button id="drawer-install" hidden>⬇ INSTALL ORION</button>
 
-<!-- Status sheet: on phones the readouts, meta rows, control groups and info
-     block are MOVED in here (moved, not cloned, so their listeners survive) and
+<!-- Status sheet: on phones the readouts, meta rows and mission panel are
+     MOVED in here (moved, not cloned, so their listeners survive) and
      restored to their desktop positions above 820px. -->
 <div id="pet-sheet-backdrop"></div>
-<aside id="pet-sheet" aria-label="Status">
+<aside id="pet-sheet" aria-label="Status and missions">
   <div id="pet-sheet-head">
     <span class="sheet-title">⟡ STATUS</span>
     <button id="pet-sheet-close" aria-label="Close">✕</button>
@@ -2495,7 +2523,7 @@ const MoonCore = {
     });
   },
 
-  // ===== State / Conversations / Memories / Lessons / Evolution =====
+  // ===== State / Conversations / Memories / Lessons / Mission / Evolution =====
   async getState() { return (await this.req('GET','/state')).state; },
   // ----- offline state-sync queue -----
   // Only putState is queued: state patches are non-sensitive. Conversation is
@@ -2589,6 +2617,10 @@ const MoonCore = {
     }
     return r.lessons;
   },
+
+  async getMission() { return (await this.req('GET','/mission')).mission; },
+  async putMission(domain, patch) { return this.req('PUT','/mission/' + domain, patch); },
+  async addMissionDomain(domain) { return this.req('POST','/mission', { domain }); },
 
   // ===== The Academy (v0.6o) — attributes Orion tests against =====
   // These are reached by Orion through tool-use, never by an operator
@@ -2844,6 +2876,7 @@ const Orion = (() => {
     lastTimeBand: null,
     streamAbortController: null,  // v0.6f: tracks in-flight brain stream for stop-button
     operatorId: null,
+    mission: [],
     lastLoggedTurnAt: null,   // v0.6o: ms timestamp of the newest hydrated log turn
     profileFacts: '',     // joined memory snippets to inject into prompt
   };
@@ -2879,6 +2912,8 @@ const Orion = (() => {
     henshin: document.getElementById('henshin'),
     henshinLabel: document.getElementById('henshin-label'),
     formChips: document.getElementById('form-chips'),
+    missionList: document.getElementById('mission-list'),
+    missionAdd: document.getElementById('mission-add'),
     reflectionBeacon: document.getElementById('reflection-beacon'),
 
     // Chronicle UI (v0.6b)
@@ -3595,6 +3630,18 @@ The Paladin's moral spine now runs through all three forms as substrate, not as 
       el.coreBadge.classList.remove('live');
       el.coreLabel.textContent = 'SEEKING CORE';
       el.coreVal.textContent = 'offline';
+    }
+  }
+
+  // ====== MISSION UI ======
+  function renderMission() {
+    el.missionList.innerHTML = '';
+    for (const m of state.mission) {
+      const item = document.createElement('div');
+      item.className = 'mission-item';
+      const displayName = m.domain.replace(/_/g, ' ');
+      item.innerHTML = `<span class="domain">${displayName}</span><span class="level">L${m.level}</span>`;
+      el.missionList.appendChild(item);
     }
   }
 
@@ -5726,6 +5773,16 @@ Respond now in the ${selectedInstrument.toUpperCase()} voicing. Length cap is ha
     if (state.apiKey) log('SYS', `Model: ${state.model}.`, 'system');
     render();
   });
+  el.missionAdd.addEventListener('click', async () => {
+    const d = prompt("Add a mission domain (lowercase, underscores ok):");
+    if (!d) return;
+    try {
+      await MoonCore.addMissionDomain(d);
+      state.mission = await MoonCore.getMission();
+      renderMission();
+      log('SYS', `Mission domain "${d.toLowerCase().replace(/[^a-z0-9_]/g,'_')}" added.`, 'system');
+    } catch (e) { log('ERR', e.message, 'error'); }
+  });
   el.reflectionBeacon.addEventListener('click', () => runReflection());
 
   // ============================================================
@@ -6141,6 +6198,18 @@ Respond now in the ${selectedInstrument.toUpperCase()} voicing. Length cap is ha
       if (a === 'reflections') openReflections();
       if (a === 'log') openLogPanel();
       if (a === 'copy-chat') copyChatToClipboard();
+      if (a === 'mission-view') {
+        if (!MoonCore.operatorId) { log('ERR', 'Moon Core required.', 'error'); return; }
+        try {
+          const lessons = await MoonCore.listLessons();
+          if (lessons.length === 0) {
+            log('SYS', 'No lessons recorded yet. Talk to Orion, run reflections, and lessons will accumulate.', 'system');
+          } else {
+            log('SYS', `${lessons.length} lessons across your mission:`, 'system');
+            lessons.slice(0,10).forEach(l => log('SYS', `  · [${l.domain}] ${l.title || 'untitled'}`, 'system'));
+          }
+        } catch (e) { log('ERR', e.message, 'error'); }
+      }
       if (a === 'sleep') state.awake ? sleep(false) : wake();
       if (a === 'logout') { if (confirm("Disconnect from Moon Core? You'll need to re-enter your Initiation Protocol to return.")) logout(); }
     });
@@ -6406,7 +6475,7 @@ Respond now in the ${selectedInstrument.toUpperCase()} voicing. Length cap is ha
   }
 
   async function afterAwakening() {
-    // Load state and history
+    // Load state, mission, history
     try {
       const remoteState = await MoonCore.getState();
       if (remoteState) {
@@ -6418,6 +6487,9 @@ Respond now in the ${selectedInstrument.toUpperCase()} voicing. Length cap is ha
       }
       applyFormVisuals(state.form);
       document.querySelectorAll('.form-chip').forEach(c => c.classList.toggle('active', c.dataset.form === state.form));
+      state.mission = await MoonCore.getMission();
+      renderMission();
+
       // Pull profile facts (recent high-importance memories)
       try {
         const mems = await MoonCore.listMemories();
@@ -6738,7 +6810,7 @@ window.Orion = Orion;
     if (infoV && ver) infoV.textContent = ver + (codename ? ' // ' + codename.toUpperCase() : '');
   })();
 
-  // ---- status sheet: relocate stats/state-rows/controls so they stay reachable on phones ----
+  // ---- status sheet: relocate stats/state-rows/missions so they stay reachable on phones ----
   (function(){
     var sheet = document.getElementById('pet-sheet');
     var body  = document.getElementById('pet-sheet-body');
