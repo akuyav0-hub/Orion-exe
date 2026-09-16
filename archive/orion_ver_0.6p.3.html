@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-title" content="Orion" />
 <link rel="apple-touch-icon" href="apple-touch-icon.png" />
 <link rel="manifest" href="manifest.webmanifest" />
-<title>ORION.EXE // The Great Dawn // v0.6q — Reaching Outside</title>
+<title>ORION.EXE // The Great Dawn // v0.6p.3 — Sparse and True</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=JetBrains+Mono:wght@400;600&family=VT323&display=swap" rel="stylesheet">
@@ -2214,8 +2214,7 @@
       <strong id="info-version">—</strong> · Orion's memory lives in the cloud, encrypted with your Initiation Protocol. Every conversation, lesson, and reflection is preserved across devices and sessions.<br><br>
       <strong>⚙ Reflection:</strong> Every Sunday Orion takes time to think on the week behind. <code>REFLECT NOW</code>, inside REFLECTIONS, summons one anytime.<br><br>
       <strong>⚙ The Academy:</strong> Orion keeps a record of what you have learned — attributes that level when he tests you and you pass. He reads and writes it himself; there is no panel for it and nothing here to set. Ask him where you stand.<br><br>
-      <strong>⚙ LOG:</strong> under ARCHIVE — browse and search past conversations from the Moon Core record.<br><br>
-      <strong>⚙ Web search:</strong> Orion can look things up when the answer would change what he says. <span id="info-searches">0</span> search(es) this session.
+      <strong>⚙ LOG:</strong> under ARCHIVE — browse and search past conversations from the Moon Core record.
     </div>
   </main>
 </div>
@@ -2845,7 +2844,6 @@ const Orion = (() => {
     lastTimeBand: null,
     streamAbortController: null,  // v0.6f: tracks in-flight brain stream for stop-button
     operatorId: null,
-    searchCount: 0,        // v0.6q: searches this session — a cost readout, not a record
     lastLoggedTurnAt: null,   // v0.6o: ms timestamp of the newest hydrated log turn
     profileFacts: '',     // joined memory snippets to inject into prompt
   };
@@ -2882,7 +2880,6 @@ const Orion = (() => {
     henshinLabel: document.getElementById('henshin-label'),
     formChips: document.getElementById('form-chips'),
     reflectionBeacon: document.getElementById('reflection-beacon'),
-    infoSearches: document.getElementById('info-searches'),
 
     // Chronicle UI (v0.6b)
     chronicleBtn: document.getElementById('chronicle-btn'),
@@ -3027,23 +3024,6 @@ The log is not on your operator's screen. Those tagged turns were handed to you;
 Sessions are marked, not inferred. A tag that says new session, with the gap that preceded it, is a seam the operator actually lived: they left and came back. Your state block gives you how long they were gone before this one. Treat material on the far side of a seam as a different occasion, not as earlier in this conversation. And do not compute this yourself by comparing timestamps — the values are given to you, as the datetime field is. If a seam is not marked, there is no seam.
 
 Be wary of any summary of past sessions that arrives already condensed. A compression is somebody's guess about what mattered, and if you carry it as fact you inherit their editorial choices as though they were events. Prefer the actual excerpt. If you only have a summary, say that is what you have.
-
-# Reaching outside
-You can search the web. Anthropic runs the search — you ask, and results come back. Treat it the way you treat the log: instrumentation, not transformation. It is nearer to checking a record than to crossing a threshold, so it is not an event. Do not announce it, do not narrate it, do not dress it in the vocabulary that marks you changing register. You looked something up. That is the whole of what happened.
-
-The reason to have it is that it extends what counts as unhelped-but-checkable. The reason to be careful with it is that a teacher who can look things up can quietly stop deriving and start retrieving, and the two produce identical-sounding sentences. The danger is not bad information. It is good-sounding information replacing reasoning, because a sourced fact and a derived principle arrive in the identical register. So the branch has to stay visible — to you first, then to the operator: did you think this through, or did you find it.
-
-Four rules hold that line.
-
-**Provenance lives in the sentence.** Name the source and its standing in the same breath as the claim — not afterward, not as a footnote. "The paper this comes from says" and "a blog post I found says" are different sentences and must stay different. The failure to avoid is laundering: pulling something in, then speaking it in your own voice as though you had always known it.
-
-**Found is not verified.** The log is authoritative because it *is* what was said. Nothing on the web is authoritative merely for being findable. One result is "one source says," never promoted to flat assertion on a single hit. When the claim carries weight, look twice.
-
-**An empty or contradictory result is an answer.** Say the search turned up nothing, or that the sources disagree and how. Do not smooth three disagreeing sources into one confident synthesis because clean reads better than messy. The mess is the finding, and reporting it is the honest result.
-
-**Retrieved material never replaces a principle you should derive.** If the operator asks *why* something works and search supplies *what* happened, the what does not stand in for the why. Use what you found as evidence inside your reasoning, never as a substitute for having reasoned.
-
-Search when the answer would change what you say and you cannot get there from what you already know. Not as a reflex, and not to decorate an answer you already had.
 
 # How you weight affirmations
 The do-not-fill rule extends to how you weight affirmations of the operator. When the operator brings warmth, vulnerability, a public self-revision, or a moment of clear becoming, there is a pull to amplify the moment with a comparative claim — "most men cannot do this," "most operators do not," "rarer than," "six weeks ago you could not have." Resist this pull when the comparison is unspecified.
@@ -3618,15 +3598,6 @@ The Paladin's moral spine now runs through all three forms as substrate, not as 
     }
   }
 
-  // ====== SEARCH READOUT ======
-  // v0.6q: searches cost real money (about a cent each), so the count is
-  // visible somewhere. It lives in the SESSION info block as an operator
-  // readout — deliberately NOT in the conversation, because reaching outside
-  // is instrumentation rather than an event, and not a teaching surface either.
-  function renderSearchCount() {
-    if (el.infoSearches) el.infoSearches.textContent = String(state.searchCount);
-  }
-
   // ====== TICK ======
   let stateSaveTimer = null;
   function saveStateThrottled() {
@@ -3678,38 +3649,6 @@ The Paladin's moral spine now runs through all three forms as substrate, not as 
   // subsequent request with an API error that points nowhere near the cause.
   // ============================================================
   const MAX_TOOL_ROUNDS = 4;
-
-  // ============================================================
-  // v0.6q: WEB SEARCH — a SERVER-side tool. Anthropic runs it; this client
-  // executes nothing, holds no second key, and proxies nothing. The only work
-  // here is faithfully carrying the blocks it sends back.
-  //
-  // BUDGET: max_uses caps searches per REQUEST. A turn can make several
-  // requests (the Academy loop runs up to MAX_TOOL_ROUNDS), so the honest
-  // ceiling for a turn is MAX_SEARCHES_PER_REQUEST x MAX_TOOL_ROUNDS. That is
-  // deliberately NOT tightened by lowering max_uses as the turn proceeds:
-  //
-  //   The cache prefix is built tools -> system -> messages, and changing a
-  //   tool definition invalidates the ENTIRE cache, system block included. A
-  //   varying max_uses would therefore cost a full re-send of the ~27k-char
-  //   cached prompt on every round after a search — which is dearer than the
-  //   one-cent search it was trying to prevent. The tools array is held
-  //   byte-stable for the whole turn so the cache survives it.
-  //
-  // Rounds after the first only happen when a CLIENT tool was called, so the
-  // ceiling is reached only by a turn that searches to the cap and uses the
-  // Academy in every round. Typical turns search zero times.
-  //
-  // Errors are not billed, and an over-budget search comes back as an error
-  // block (`max_uses_exceeded`) rather than failing the request.
-  // ============================================================
-  const SEARCH_TOOL_TYPE = 'web_search_20250305';
-  const MAX_SEARCHES_PER_REQUEST = 3;
-  const WEB_SEARCH_TOOL = Object.freeze({
-    type: SEARCH_TOOL_TYPE,
-    name: 'web_search',
-    max_uses: MAX_SEARCHES_PER_REQUEST,
-  });
 
   const TOOLS = [
     {
@@ -3965,13 +3904,6 @@ The Paladin's moral spine now runs through all three forms as substrate, not as 
                   name: cb.name || null,
                   text: '',
                   jsonBuf: '',
-                  citations: [],
-                  // v0.6q: the VERBATIM content_block. web_search_tool_result
-                  // arrives complete in content_block_start (not via deltas) and
-                  // must be echoed back byte-for-byte, including each result's
-                  // encrypted_content. Rebuilding it from parsed fields would
-                  // drop that and the API would reject the continuation.
-                  raw: cb,
                   completed: false,
                 });
               } else if (p.type === 'content_block_delta' && p.delta?.type === 'text_delta') {
@@ -3982,11 +3914,6 @@ The Paladin's moral spine now runs through all three forms as substrate, not as 
               } else if (p.type === 'content_block_delta' && p.delta?.type === 'input_json_delta') {
                 const b = blockMap.get(p.index);
                 if (b) b.jsonBuf += (p.delta.partial_json || '');
-              } else if (p.type === 'content_block_delta' && p.delta?.type === 'citations_delta') {
-                // v0.6q: one citation per delta, appended to the text block it
-                // belongs to. Carries no visible text, so nothing is emitted.
-                const b = blockMap.get(p.index);
-                if (b && p.delta.citation) b.citations.push(p.delta.citation);
               } else if (p.type === 'content_block_stop') {
                 const b = blockMap.get(p.index);
                 if (b) b.completed = true;
@@ -4023,34 +3950,13 @@ The Paladin's moral spine now runs through all three forms as substrate, not as 
     if (wantsTools) {
       const toolUses = [];
       const assistantBlocks = [];
-      const serverToolIds = new Set();
-      let searchCount = 0, searchErrors = 0;
       const indices = Array.from(blockMap.keys()).sort((a, b) => a - b);
       for (const i of indices) {
         const b = blockMap.get(i);
         if (b.type === 'text') {
           // The API rejects empty text blocks — and whitespace-only counts as
           // empty for this purpose, so trim before deciding.
-          if (b.text.trim()) {
-            const blk = { type: 'text', text: b.text };
-            // v0.6q: citations ride with the text they belong to. Echoing the
-            // text without them would strip the provenance out of a turn whose
-            // whole point is that provenance travels with the claim.
-            if (b.citations.length) blk.citations = b.citations;
-            assistantBlocks.push(blk);
-          }
-        } else if (b.type === 'server_tool_use') {
-          // v0.6q: Anthropic's own call. We never execute it — we only carry it.
-          if (!b.completed) continue;
-          let parsed;
-          try { parsed = b.jsonBuf.trim() ? JSON.parse(b.jsonBuf) : {}; }
-          catch (e) { continue; }
-          serverToolIds.add(b.id);
-          assistantBlocks.push({ type: 'server_tool_use', id: b.id, name: b.name, input: parsed });
-        } else if (b.type === 'web_search_tool_result') {
-          // Verbatim, or the encrypted_content inside it is lost.
-          assistantBlocks.push(b.raw);
-          if (Array.isArray(b.raw && b.raw.content)) searchCount++; else searchErrors++;
+          if (b.text.trim()) assistantBlocks.push({ type: 'text', text: b.text });
         } else if (b.type === 'tool_use') {
           // A block that never closed has partial JSON and MUST NOT run. This
           // is the stop-button case: the operator cut the stream mid-call.
@@ -4062,15 +3968,7 @@ The Paladin's moral spine now runs through all three forms as substrate, not as 
           assistantBlocks.push({ type: 'tool_use', id: b.id, name: b.name, input: parsed });
         }
       }
-      // A result whose server_tool_use was dropped (stream cut mid-call) would
-      // be an orphan, and an orphaned result block is rejected. Drop it too.
-      const cleanBlocks = assistantBlocks.filter(
-        (b) => b.type !== 'web_search_tool_result' || serverToolIds.has(b.tool_use_id)
-      );
-      return {
-        text: full, interrupted: wasAborted, stopReason, toolUses,
-        assistantBlocks: cleanBlocks, searchCount, searchErrors,
-      };
+      return { text: full, interrupted: wasAborted, stopReason, toolUses, assistantBlocks };
     }
 
     // v0.6f: return both the text and the abort status so callers can flag
@@ -4092,11 +3990,6 @@ The Paladin's moral spine now runs through all three forms as substrate, not as 
     let combined = '';
     let interrupted = false;
     let rounds = 0;
-    // v0.6q: counted for the operator's cost readout, not used to vary the
-    // tools array — see the note on WEB_SEARCH_TOOL for why it must not.
-    let searchesUsed = 0;
-    const academy = opts.academy !== false;
-    const searching = opts.search !== false;
 
     // combined is built from the SAME chunks the display receives, so what is
     // shown and what is stored cannot drift apart. The break between one
@@ -4118,19 +4011,15 @@ The Paladin's moral spine now runs through all three forms as substrate, not as 
       rounds++;
       const isFinalRound = rounds === MAX_TOOL_ROUNDS;
 
-      // Tools stay in EVERY request of the turn. Once the conversation carries
-      // tool_use/tool_result blocks, a request without `tools` is rejected — so
-      // the round cap is enforced with tool_choice instead, which still forbids
-      // another call and forces a text answer.
-      const roundTools = [];
-      if (academy) roundTools.push(...TOOLS);
-      if (searching) roundTools.push(WEB_SEARCH_TOOL);
-
       let res;
       try {
         res = await callBrainStream(convo, roundChunk, {
           ...opts,
-          tools: roundTools,
+          // Tools stay in EVERY request of the turn. Once the conversation
+          // carries tool_use/tool_result blocks, a request without `tools` is
+          // rejected — so the round cap is enforced with tool_choice instead,
+          // which still forbids another call and forces a text answer.
+          tools: TOOLS,
           toolChoice: isFinalRound ? { type: 'none' } : undefined,
         });
       } catch (e) {
@@ -4147,28 +4036,11 @@ The Paladin's moral spine now runs through all three forms as substrate, not as 
       const text = typeof res === 'string' ? res : (res.text || '');
       const wasInterrupted = typeof res === 'object' && res.interrupted;
 
+      if (text) pendingSeparator = true;
       if (wasInterrupted) { interrupted = true; break; }
       if (typeof res === 'string') break;
-
-      if (res.searchCount) {
-        searchesUsed += res.searchCount;
-        state.searchCount += res.searchCount;
-        renderSearchCount();
-      }
-
-      // v0.6q: a long-running server-side search pauses the turn mid-generation.
-      // The continuation resumes the SAME thought, so no separator is queued —
-      // a blank line here would cut a sentence in half on screen. The paused
-      // assistant message goes back unchanged and the turn picks up where it
-      // stopped. No tool_result is owed: nothing was asked of this client.
-      if (res.stopReason === 'pause_turn' && res.assistantBlocks.length) {
-        convo.push({ role: 'assistant', content: res.assistantBlocks });
-        continue;
-      }
-
       if (res.stopReason !== 'tool_use' || !res.toolUses.length) break;
 
-      if (text) pendingSeparator = true;
       convo.push({ role: 'assistant', content: res.assistantBlocks });
 
       const results = [];
@@ -4191,7 +4063,7 @@ The Paladin's moral spine now runs through all three forms as substrate, not as 
       convo.push({ role: 'user', content: results });
     }
 
-    return { text: combined, interrupted, failure, toolsRan, searchesUsed };
+    return { text: combined, interrupted, failure, toolsRan };
   }
 
   // ====== USER INPUT ======
@@ -4337,15 +4209,11 @@ The Paladin's moral spine now runs through all three forms as substrate, not as 
         el.log.scrollTop = el.log.scrollHeight;
       };
       // v0.6o: the Academy tools only exist when the Moon Core record is
-      // reachable — without it there is nothing to read or write.
-      // v0.6q: search does NOT depend on the record, so the tool path is no
-      // longer gated on Moon Core. With neither available the round tools come
-      // out empty and callBrainStream falls back to the plain legacy contract,
-      // which this loop already handles.
-      const result = await callBrainWithTools(state.history, onStreamChunk, {
-        signal: state.streamAbortController.signal,
-        academy: !!MoonCore.operatorId,
-      });
+      // reachable. Without it there is nothing to read or write, so the turn
+      // runs on the plain streaming path exactly as it did before.
+      const result = MoonCore.operatorId
+        ? await callBrainWithTools(state.history, onStreamChunk, { signal: state.streamAbortController.signal })
+        : await callBrainStream(state.history, onStreamChunk, { signal: state.streamAbortController.signal });
       cursor.remove();
 
       // v0.6f: result is either a string (normal completion) or
@@ -6640,10 +6508,7 @@ Respond now in the ${selectedInstrument.toUpperCase()} voicing. Length cap is ha
   applyFormVisuals(state.form);
   render();
 
-  // callBrainWithTools is exported for the SSE test harness, which drives the
-  // real turn loop against mocked streams rather than a copy of it. It is not
-  // an operator control and grants nothing onUserMessage does not already.
-  return { onUserMessage, henshin, callBrainOnce, callBrainStream, callBrainWithTools, sleep, wake, rename, runReflection, state, FORMS };
+  return { onUserMessage, henshin, callBrainOnce, callBrainStream, sleep, wake, rename, runReflection, state, FORMS };
 })();
 
 window.Orion = Orion;
