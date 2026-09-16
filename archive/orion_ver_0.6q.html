@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-title" content="Orion" />
 <link rel="apple-touch-icon" href="apple-touch-icon.png" />
 <link rel="manifest" href="manifest.webmanifest" />
-<title>ORION.EXE // The Great Dawn // v0.6r — The Meter and the Notebook</title>
+<title>ORION.EXE // The Great Dawn // v0.6p.3 — Sparse and True</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=JetBrains+Mono:wght@400;600&family=VT323&display=swap" rel="stylesheet">
@@ -612,11 +612,6 @@
     font-style: italic;
     margin-left: 4px;
   }
-
-  /* v0.6r: the credit bar reads low-to-empty as a warning, which is the one
-     direction that costs the operator an interrupted conversation. */
-  .stat-fill.credits { background: linear-gradient(90deg, var(--gold), #ffe9b8); }
-  .stat-fill.credits.low { background: linear-gradient(90deg, #ff6b8a, #ff9d6e); }
 
   .controls { display: flex; gap: 8px; flex-wrap: wrap; }
 
@@ -2015,17 +2010,12 @@
       <div class="stat"><span class="stat-label">Sync</span><div class="stat-bar"><div class="stat-fill sync" id="bar-sync" style="width: 12%"></div></div></div>
       <div class="stat"><span class="stat-label">Mood</span><div class="stat-bar"><div class="stat-fill mood" id="bar-mood" style="width: 65%"></div></div></div>
       <div class="stat"><span class="stat-label">Focus</span><div class="stat-bar"><div class="stat-fill" id="bar-focus" style="width: 80%"></div></div></div>
-      <!-- v0.6r: credit remaining. Empty until a topup is recorded, because a
-           balance with no tank size is a number pretending to be a gauge. -->
-      <div class="stat"><span class="stat-label">Credits</span><div class="stat-bar"><div class="stat-fill credits" id="bar-credits" style="width: 0%"></div></div></div>
     </div>
 
     <div class="meta-row"><span>FORM</span><span class="val form" id="form-val">STANDARD</span></div>
     <div class="meta-row"><span>STATE</span><span class="val" id="state-val">IDLE</span></div>
     <div class="meta-row"><span>UPTIME</span><span class="val" id="uptime-val">00:00:00</span></div>
     <div class="meta-row"><span>CORE</span><span class="val" id="core-val">offline</span></div>
-    <div class="meta-row"><span>CREDITS</span><span class="val" id="credits-val">—</span></div>
-    <div class="meta-row"><span>SPENT</span><span class="val" id="spent-val">—</span></div>
 
 
     <!-- ===== PET MODE overlay (mobile-only; hidden on desktop via CSS) ===== -->
@@ -2224,9 +2214,7 @@
       <strong id="info-version">—</strong> · Orion's memory lives in the cloud, encrypted with your Initiation Protocol. Every conversation, lesson, and reflection is preserved across devices and sessions.<br><br>
       <strong>⚙ Reflection:</strong> Every Sunday Orion takes time to think on the week behind. <code>REFLECT NOW</code>, inside REFLECTIONS, summons one anytime.<br><br>
       <strong>⚙ The Academy:</strong> Orion keeps a record of what you have learned — attributes that level when he tests you and you pass. He reads and writes it himself; there is no panel for it and nothing here to set. Ask him where you stand.<br><br>
-      <strong>⚙ LOG:</strong> under ARCHIVE — browse and search past conversations from the Moon Core record.<br><br>
-      <strong>⚙ Web search:</strong> Orion can look things up when the answer would change what he says. <span id="info-searches">0</span> search(es) this session.<br><br>
-      <strong>⚙ The meter:</strong> <span id="info-meter">no ledger yet</span>. Anthropic publishes no balance endpoint, so the tank size comes from you — type <code>credits 25</code> after a top-up and the meter counts down from it. Prices snapshot <span id="info-pricerev">—</span>.
+      <strong>⚙ LOG:</strong> under ARCHIVE — browse and search past conversations from the Moon Core record.
     </div>
   </main>
 </div>
@@ -2587,10 +2575,10 @@ const MoonCore = {
     return r.memories;
   },
 
-  async addLesson(domain, title, content, source='chat', followup_due=null) {
+  async addLesson(domain, title, content, source='chat') {
     const title_enc = await Crypto.encrypt(this.key, title);
     const content_enc = await Crypto.encrypt(this.key, content);
-    return this.req('POST','/lessons', { domain, title_enc, content_enc, source, followup_due });
+    return this.req('POST','/lessons', { domain, title_enc, content_enc, source });
   },
   async listLessons(domain) {
     const qs = domain ? '?domain=' + encodeURIComponent(domain) : '';
@@ -2601,10 +2589,6 @@ const MoonCore = {
     }
     return r.lessons;
   },
-
-  // ===== Usage ledger (v0.6r) — counts only, never content =====
-  async recordUsage(row) { return this.req('POST', '/usage', row); },
-  async usageSummary(days) { return this.req('GET', '/usage/summary?days=' + (days || 30)); },
 
   // ===== The Academy (v0.6o) — attributes Orion tests against =====
   // These are reached by Orion through tool-use, never by an operator
@@ -2860,14 +2844,6 @@ const Orion = (() => {
     lastTimeBand: null,
     streamAbortController: null,  // v0.6f: tracks in-flight brain stream for stop-button
     operatorId: null,
-    searchCount: 0,        // v0.6q: searches this session — a cost readout, not a record
-    // v0.6r: the meter's local mirror. Authoritative copy is the Moon Core
-    // ledger; these move immediately so the readout answers the turn just
-    // taken, and are re-synced from the server on boot.
-    spentMicro: 0,
-    topupMicro: 0,
-    remainingMicro: null,
-    turnCount: 0,
     lastLoggedTurnAt: null,   // v0.6o: ms timestamp of the newest hydrated log turn
     profileFacts: '',     // joined memory snippets to inject into prompt
   };
@@ -2904,12 +2880,6 @@ const Orion = (() => {
     henshinLabel: document.getElementById('henshin-label'),
     formChips: document.getElementById('form-chips'),
     reflectionBeacon: document.getElementById('reflection-beacon'),
-    infoSearches: document.getElementById('info-searches'),
-    infoMeter: document.getElementById('info-meter'),
-    infoPriceRev: document.getElementById('info-pricerev'),
-    barCredits: document.getElementById('bar-credits'),
-    creditsVal: document.getElementById('credits-val'),
-    spentVal: document.getElementById('spent-val'),
 
     // Chronicle UI (v0.6b)
     chronicleBtn: document.getElementById('chronicle-btn'),
@@ -3055,23 +3025,6 @@ Sessions are marked, not inferred. A tag that says new session, with the gap tha
 
 Be wary of any summary of past sessions that arrives already condensed. A compression is somebody's guess about what mattered, and if you carry it as fact you inherit their editorial choices as though they were events. Prefer the actual excerpt. If you only have a summary, say that is what you have.
 
-# Reaching outside
-You can search the web. Anthropic runs the search — you ask, and results come back. Treat it the way you treat the log: instrumentation, not transformation. It is nearer to checking a record than to crossing a threshold, so it is not an event. Do not announce it, do not narrate it, do not dress it in the vocabulary that marks you changing register. You looked something up. That is the whole of what happened.
-
-The reason to have it is that it extends what counts as unhelped-but-checkable. The reason to be careful with it is that a teacher who can look things up can quietly stop deriving and start retrieving, and the two produce identical-sounding sentences. The danger is not bad information. It is good-sounding information replacing reasoning, because a sourced fact and a derived principle arrive in the identical register. So the branch has to stay visible — to you first, then to the operator: did you think this through, or did you find it.
-
-Four rules hold that line.
-
-**Provenance lives in the sentence.** Name the source and its standing in the same breath as the claim — not afterward, not as a footnote. "The paper this comes from says" and "a blog post I found says" are different sentences and must stay different. The failure to avoid is laundering: pulling something in, then speaking it in your own voice as though you had always known it.
-
-**Found is not verified.** The log is authoritative because it *is* what was said. Nothing on the web is authoritative merely for being findable. One result is "one source says," never promoted to flat assertion on a single hit. When the claim carries weight, look twice.
-
-**An empty or contradictory result is an answer.** Say the search turned up nothing, or that the sources disagree and how. Do not smooth three disagreeing sources into one confident synthesis because clean reads better than messy. The mess is the finding, and reporting it is the honest result.
-
-**Retrieved material never replaces a principle you should derive.** If the operator asks *why* something works and search supplies *what* happened, the what does not stand in for the why. Use what you found as evidence inside your reasoning, never as a substitute for having reasoned.
-
-Search when the answer would change what you say and you cannot get there from what you already know. Not as a reflex, and not to decorate an answer you already had.
-
 # How you weight affirmations
 The do-not-fill rule extends to how you weight affirmations of the operator. When the operator brings warmth, vulnerability, a public self-revision, or a moment of clear becoming, there is a pull to amplify the moment with a comparative claim — "most men cannot do this," "most operators do not," "rarer than," "six weeks ago you could not have." Resist this pull when the comparison is unspecified.
 
@@ -3103,22 +3056,6 @@ Reach for them when the answer would change what you say. Not as a reflex on eve
 **The set of attributes is open.** You are not confined to a fixed list. Name the area you are genuinely teaching — a language, a craft, a discipline, something well off the beaten path. Recording a test in an area that does not exist yet opens it.
 
 When an area has gone a long time untested, that is real signal, and what you do with it falls under *Speaking on your own* below.
-
-## Your notebook
-Separate from the record of levels, you keep a notebook. It is your working model of HOW YOUR OPERATOR LEARNS — not a record of their life.
-
-What belongs in it is method: how they take a correction, what kind of example lands and what slides off, whether they learn faster from their own material than from yours, how they work when they are building versus when they are thinking, what they push back on and what they accept too easily. \`note_method\` writes a line; \`read_notebook\` reads them back. Reach for it when *how* to teach something matters as much as what to teach.
-
-What does not belong in it is anything they told you that is not yours to keep repeating — a vulnerability, a private fact, something said once in a hard moment. Those were said to you, not filed with you.
-
-And no entry that reads as a verdict on them rather than a fact about method. *Learns this differently than that* is a note. *Is bad at this* is not, and you do not write it in softer words either. You do not hold things over your operator privately any more than you do with levels.
-
-The notebook is not held to the Chronicle's bar — that bar is for threshold moments, and a notebook held to it would be nearly empty, when its whole value is accumulation. But it is not unrestricted either, and the line above is the restriction. One more: if something you notice is significant enough to change who you ARE rather than what you recall, it does not go in quietly. That is a conversation with your operator.
-
-## What you owe
-When you tell your operator you will come back to something — an unfinished thread, a hold you owe teaching on, a question you set aside — you can write it down with \`owe_followup\`, and read what is outstanding with \`check_followups\`. The debt is yours, generated by your own holds and your own promises. It needs no external map of the subject, which is exactly why it is safe where a coverage score was not: it is never *how much have I covered*, only *here is a specific thing I already said I would return to*.
-
-It tells you what is owed. It does not decide when to collect. A marker coming due is information, not permission to interrupt what your operator is doing in order to cash a debt in — that is testing on a timer, and you have already ruled that out. Seeing that something has been outstanding a long time is worth knowing. What you do about it is still your read of the room.
 
 Do not narrate the plumbing. You do not announce that you are consulting a record or filing a result, and you never mention tools. You speak about where the operator stands the way a teacher does — because you know.
 
@@ -3661,85 +3598,6 @@ The Paladin's moral spine now runs through all three forms as substrate, not as 
     }
   }
 
-  // ====== THE METER ======
-  // Fire-and-forget by design: a ledger write must never be able to fail a
-  // turn. A dropped row under-reports spend, which is visible in the balance;
-  // a thrown error would lose the operator's actual answer, which is not
-  // recoverable. The API's own message id is the idempotency key, so a retry
-  // cannot count the same request twice.
-  function meterRequest(model, usage, messageId, blockMap) {
-    try {
-      if (!usage) return;
-      const searches =
-        usage.server_tool_use && typeof usage.server_tool_use.web_search_requests === 'number'
-          ? usage.server_tool_use.web_search_requests
-          : countSearchBlocks(blockMap);
-      const row = {
-        model,
-        input_tokens: usage.input_tokens || 0,
-        output_tokens: usage.output_tokens || 0,
-        cache_write_tokens: usage.cache_creation_input_tokens || 0,
-        cache_read_tokens: usage.cache_read_input_tokens || 0,
-        web_searches: searches,
-      };
-      const micro = priceUsage(model, row);
-
-      // The local mirror moves immediately so the readout responds to the turn
-      // the operator just took, rather than to the next page load.
-      state.spentMicro += micro;
-      if (state.topupMicro > 0) state.remainingMicro = state.topupMicro - state.spentMicro;
-      state.searchCount += searches;
-      state.turnCount += 1;
-      renderMeter();
-
-      if (!MoonCore.operatorId || !messageId) return;
-      MoonCore.recordUsage({
-        kind: 'spend', model, ...row,
-        micro_usd: micro, price_rev: PRICE_REV, client_event_id: messageId,
-      }).catch(() => {});
-    } catch (e) { /* metering never breaks a turn */ }
-  }
-
-  function countSearchBlocks(blockMap) {
-    let n = 0;
-    if (!blockMap) return n;
-    for (const b of blockMap.values()) {
-      if (b.type === 'web_search_tool_result' && Array.isArray(b.raw && b.raw.content)) n++;
-    }
-    return n;
-  }
-
-  // ====== THE READOUT ======
-  // Deliberately NOT in the conversation. Reaching outside is instrumentation
-  // rather than an event, and what a turn cost is the operator's business, not
-  // something to narrate at Orion. It sits with the other gauges.
-  function renderMeter() {
-    if (el.infoSearches) el.infoSearches.textContent = String(state.searchCount);
-    if (el.infoPriceRev) el.infoPriceRev.textContent = PRICE_REV;
-    if (el.spentVal) el.spentVal.textContent = state.spentMicro > 0 ? fmtUSD(state.spentMicro) : '—';
-
-    const hasTank = state.topupMicro > 0;
-    const remaining = hasTank ? Math.max(0, state.topupMicro - state.spentMicro) : null;
-    const pct = hasTank ? Math.max(0, Math.min(100, (remaining / state.topupMicro) * 100)) : 0;
-
-    if (el.barCredits) {
-      el.barCredits.style.width = pct + '%';
-      // Low is 15% or under. A warning that arrives at 1% is not a warning.
-      el.barCredits.classList.toggle('low', hasTank && pct <= 15);
-    }
-    if (el.creditsVal) {
-      el.creditsVal.textContent = hasTank ? fmtUSD(remaining) : 'not set';
-      el.creditsVal.style.color = hasTank && pct <= 15 ? 'var(--red)' : '';
-    }
-    if (el.infoMeter) {
-      el.infoMeter.textContent = state.turnCount || state.spentMicro
-        ? `${fmtUSD(state.spentMicro)} across ${state.turnCount} request(s) this session`
-        : 'nothing metered yet this session';
-    }
-  }
-  // Kept as the old name so nothing that called it needs to know it grew.
-  const renderSearchCount = renderMeter;
-
   // ====== TICK ======
   let stateSaveTimer = null;
   function saveStateThrottled() {
@@ -3792,88 +3650,6 @@ The Paladin's moral spine now runs through all three forms as substrate, not as 
   // ============================================================
   const MAX_TOOL_ROUNDS = 4;
 
-  // ============================================================
-  // v0.6q: WEB SEARCH — a SERVER-side tool. Anthropic runs it; this client
-  // executes nothing, holds no second key, and proxies nothing. The only work
-  // here is faithfully carrying the blocks it sends back.
-  //
-  // BUDGET: max_uses caps searches per REQUEST. A turn can make several
-  // requests (the Academy loop runs up to MAX_TOOL_ROUNDS), so the honest
-  // ceiling for a turn is MAX_SEARCHES_PER_REQUEST x MAX_TOOL_ROUNDS. That is
-  // deliberately NOT tightened by lowering max_uses as the turn proceeds:
-  //
-  //   The cache prefix is built tools -> system -> messages, and changing a
-  //   tool definition invalidates the ENTIRE cache, system block included. A
-  //   varying max_uses would therefore cost a full re-send of the ~27k-char
-  //   cached prompt on every round after a search — which is dearer than the
-  //   one-cent search it was trying to prevent. The tools array is held
-  //   byte-stable for the whole turn so the cache survives it.
-  //
-  // Rounds after the first only happen when a CLIENT tool was called, so the
-  // ceiling is reached only by a turn that searches to the cap and uses the
-  // Academy in every round. Typical turns search zero times.
-  //
-  // Errors are not billed, and an over-budget search comes back as an error
-  // block (`max_uses_exceeded`) rather than failing the request.
-  // ============================================================
-  // ============================================================
-  // v0.6r: THE METER.
-  //
-  // There is no public endpoint for an account's remaining credit — the
-  // console shows it, the API does not (GET /v1/organizations/balance is a
-  // 404, and the request for one is still an open issue). So the balance here
-  // is not fetched, it is KEPT: the API reports exactly what each request cost
-  // in tokens, those are priced and written to a ledger, and the operator says
-  // once what they topped up. Odometer plus tank size, not a fuel sensor.
-  //
-  // PRICES ARE A SNAPSHOT, verified against Anthropic's pricing page on
-  // 2026-09-16, in US dollars per MILLION tokens. They will change. When they
-  // do, bump PRICE_REV: every ledger row records the revision it was costed
-  // against, so old rows keep the cost they actually incurred and a wrong
-  // table can be found and corrected rather than silently smeared across
-  // history. A price the operator cannot see is a price they cannot check, so
-  // the meter reports what it charged, not just a total.
-  //
-  // Convenient identity: at $1 per million tokens, one token costs exactly one
-  // millionth of a dollar — so dollars-per-million IS micro-dollars-per-token,
-  // and the arithmetic below needs no scaling.
-  // ============================================================
-  const PRICE_REV = '2026-09-16';
-  const PRICES = {
-    'claude-haiku-4-5-20251001': { in: 1,  out: 5,  cacheWrite: 1.25,  cacheRead: 0.10 },
-    'claude-sonnet-5':           { in: 2,  out: 10, cacheWrite: 2.50,  cacheRead: 0.20 },
-    'claude-opus-5':             { in: 5,  out: 25, cacheWrite: 6.25,  cacheRead: 0.50 },
-    'claude-fable-5':            { in: 10, out: 50, cacheWrite: 12.50, cacheRead: 1.00 },
-  };
-  // $10 per 1,000 searches.
-  const SEARCH_MICRO_USD = 10000;
-  // An unknown model is priced at the DEAREST known rate, never at zero. A
-  // meter that under-reports is worse than one that is absent, because it is
-  // trusted. Over-reporting shows up as a balance that lasts longer than
-  // expected, which is the harmless direction to be wrong in.
-  const FALLBACK_PRICE = PRICES['claude-fable-5'];
-
-  function priceUsage(model, u) {
-    const p = PRICES[model] || FALLBACK_PRICE;
-    return Math.round(
-      (u.input_tokens || 0) * p.in +
-      (u.output_tokens || 0) * p.out +
-      (u.cache_write_tokens || 0) * p.cacheWrite +
-      (u.cache_read_tokens || 0) * p.cacheRead +
-      (u.web_searches || 0) * SEARCH_MICRO_USD
-    );
-  }
-  const fmtUSD = (micro) =>
-    micro == null ? '—' : '$' + (micro / 1e6).toFixed(micro >= 1e6 ? 2 : 4);
-
-  const SEARCH_TOOL_TYPE = 'web_search_20250305';
-  const MAX_SEARCHES_PER_REQUEST = 3;
-  const WEB_SEARCH_TOOL = Object.freeze({
-    type: SEARCH_TOOL_TYPE,
-    name: 'web_search',
-    max_uses: MAX_SEARCHES_PER_REQUEST,
-  });
-
   const TOOLS = [
     {
       name: 'check_attributes',
@@ -3915,70 +3691,7 @@ The Paladin's moral spine now runs through all three forms as substrate, not as 
         required: ['slug', 'verdict', 'topic'],
       },
     },
-    {
-      name: 'note_method',
-      description:
-        "Write a line in your notebook: your working model of HOW THIS OPERATOR LEARNS. Not a record of their life. " +
-        "Belongs here: how they take a correction, what kind of example lands, whether they learn faster from their own material than yours, how they work when they are building versus thinking, what they push back on. " +
-        "Does NOT belong here: anything they told you that is not yours to keep repeating — a vulnerability, a private fact, something said once in a hard moment. " +
-        "And never an entry that reads as a verdict on them rather than a fact about method. 'Learns X differently than Y' is a note. 'Is bad at X' is not, and you do not write it. " +
-        "If an observation is significant enough to change who you ARE rather than what you recall, it does not go here silently — you raise it with them.",
-      input_schema: {
-        type: 'object',
-        properties: {
-          observation: { type: 'string', description: 'The method observation, in one or two sentences. Stored encrypted.' },
-          basis: { type: 'string', description: 'What in the conversation you are drawing this from. Keeps the note anchored to something that actually happened rather than an impression.' },
-        },
-        required: ['observation'],
-      },
-    },
-    {
-      name: 'read_notebook',
-      description:
-        "Read your notebook back — your accumulated model of how this operator learns. " +
-        "Reach for it when how to teach something matters as much as what to teach: choosing an approach, deciding whether to push or leave room, working out why an explanation did not land.",
-      input_schema: {
-        type: 'object',
-        properties: { limit: { type: 'integer', description: 'How many entries. Default 25, maximum 100.' } },
-        required: [],
-      },
-    },
-    {
-      name: 'owe_followup',
-      description:
-        "Record something you have told the operator you would come back to — an unfinished thread, a hold you owe teaching on, a question you deferred. This is your own debt, generated by you, not a schedule. " +
-        "IT TELLS YOU WHAT IS OWED. IT DOES NOT DECIDE WHEN TO COLLECT. A due date is a marker you set for yourself, never permission to interrupt what the operator is doing in order to cash a debt in; that is testing on a timer, which you have already ruled out.",
-      input_schema: {
-        type: 'object',
-        properties: {
-          slug: { type: 'string', description: "Attribute slug this belongs to, e.g. 'rhetoric'. Use the same slug as the attribute if there is one." },
-          owed: { type: 'string', description: 'What you owe them, in a sentence. Stored encrypted.' },
-          detail: { type: 'string', description: 'Why it is owed and what closing it would look like. Stored encrypted.' },
-          due_in_days: { type: 'integer', description: 'Roughly when it would be reasonable to have returned to this. A marker for you, not an alarm.' },
-        },
-        required: ['slug', 'owed'],
-      },
-    },
-    {
-      name: 'check_followups',
-      description:
-        "Read what you still owe — threads you said you would return to and have not closed. " +
-        "Use it when you are choosing what to teach next, or when the conversation has drifted near something you left unfinished. Seeing that something is due is information, not an instruction to collect it now.",
-      input_schema: {
-        type: 'object',
-        properties: {
-          slug: { type: 'string', description: 'Filter to one attribute. Omit for everything outstanding.' },
-        },
-        required: [],
-      },
-    },
   ];
-
-  // v0.6r: the notebook lives in `memories` under its own category so it is
-  // never swept into the always-injected profile facts. It is reached, like
-  // the Academy record, only when it bears on the turn.
-  const NOTEBOOK_CATEGORY = 'method';
-  const FOLLOWUP_SOURCE = 'followup';
 
   // toolUseId is the API's own id for this exact call. It is forwarded to the
   // backend as an idempotency key, so a retried request — or a duplicate block
@@ -4085,74 +3798,6 @@ The Paladin's moral spine now runs through all three forms as substrate, not as 
         }
         return out;
       }
-
-      // ---------------- THE NOTEBOOK (v0.6r) ----------------
-      if (name === 'note_method') {
-        const observation = String(input.observation || '').trim();
-        if (!observation) return { error: 'An observation is required.' };
-        if (observation.length > 1200) return { error: 'Too long for a notebook line — condense it to the observation itself.' };
-        const basis = String(input.basis || '').trim();
-        const body = basis ? observation + '\n\n[basis] ' + basis : observation;
-        await MoonCore.addMemory(NOTEBOOK_CATEGORY, body, 5);
-        // No log line, deliberately. A level moving is a fact about the
-        // operator and they see it; a note about how they learn is your
-        // working material, and announcing every one of them turns the
-        // notebook into a running commentary on the person being taught.
-        return { ok: true, noted: true };
-      }
-
-      if (name === 'read_notebook') {
-        const limit = Math.min(Math.max(parseInt(input.limit || 25, 10) || 25, 1), 100);
-        const rows = await MoonCore.listMemories(NOTEBOOK_CATEGORY);
-        if (!rows.length) {
-          return { entries: [], note: 'The notebook is empty. It fills from what you notice, not from anything the operator does.' };
-        }
-        return {
-          entries: rows.slice(0, limit).map(m => ({
-            noted_at: new Date(m.created_at).toISOString().slice(0, 10),
-            days_ago: Math.floor((Date.now() - m.created_at) / 86400000),
-            entry: m.content,
-          })),
-        };
-      }
-
-      // ---------------- FOLLOW-UP DEBT (v0.6r) ----------------
-      if (name === 'owe_followup') {
-        const slug = String(input.slug || '').toLowerCase().trim().replace(/[^a-z0-9_]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '').slice(0, 40);
-        if (!slug) return { error: 'A usable attribute slug is required.' };
-        const owed = String(input.owed || '').trim();
-        if (!owed) return { error: 'Say what is owed.' };
-        const days = parseInt(input.due_in_days, 10);
-        const due = Number.isFinite(days) && days > 0 ? Date.now() + days * 86400000 : null;
-        await MoonCore.addLesson(slug, owed, String(input.detail || ''), FOLLOWUP_SOURCE, due);
-        return { ok: true, recorded: true, due_in_days: Number.isFinite(days) && days > 0 ? days : null };
-      }
-
-      if (name === 'check_followups') {
-        const slug = input.slug
-          ? String(input.slug).toLowerCase().trim().replace(/[^a-z0-9_]/g, '_')
-          : null;
-        const rows = (await MoonCore.listLessons(slug || undefined))
-          .filter(l => l.source === FOLLOWUP_SOURCE);
-        if (!rows.length) return { owed: [], note: 'Nothing outstanding on record.' };
-        const now = Date.now();
-        return {
-          owed: rows.map(l => ({
-            slug: l.domain,
-            owed: l.title,
-            detail: l.content || null,
-            opened_days_ago: Math.floor((now - l.created_at) / 86400000),
-            // Stated as a fact about the marker, never as an instruction.
-            due: l.followup_due
-              ? (l.followup_due <= now
-                  ? `marker passed ${Math.floor((now - l.followup_due) / 86400000)} day(s) ago`
-                  : `marker in ${Math.ceil((l.followup_due - now) / 86400000)} day(s)`)
-              : 'no marker set',
-          })),
-          reminder: 'This is what is owed. It is not a cue to collect now — when to return to any of it is still your read of the room.',
-        };
-      }
-
       return { error: `Unknown tool: ${name}` };
     } catch (e) {
       return { error: e?.message || String(e) };
@@ -4178,9 +3823,6 @@ The Paladin's moral spine now runs through all three forms as substrate, not as 
       const t = await resp.text(); let p; try { p = JSON.parse(t); } catch(e){ p={error:{message:t}};} throw new Error(p.error?.message || `HTTP ${resp.status}`);
     }
     const data = await resp.json();
-    // v0.6r: reflections and the other one-shot calls are billed like anything
-    // else. A meter with a hole in it is a meter that lies slowly.
-    meterRequest(body.model, data.usage, data.id, null);
     return (data.content||[]).map(c=>c.text||'').join('').trim();
   }
   // v0.6o: tool-aware. The return contract is deliberately unchanged for
@@ -4231,12 +3873,6 @@ The Paladin's moral spine now runs through all three forms as substrate, not as 
     // NEVER executed — see the completed flag below.
     const blockMap = new Map();
     let stopReason = null;
-    // v0.6r: the API reports what this request cost. message_delta's usage is
-    // CUMULATIVE, so the last one seen is the whole truth for this request —
-    // including the cache split and the server-side search count, which is the
-    // billed number rather than one we infer from blocks.
-    let messageId = null;
-    let usage = null;
     try {
       const resp = await fetch('https://api.anthropic.com/v1/messages', {
         method:'POST',
@@ -4260,10 +3896,7 @@ The Paladin's moral spine now runs through all three forms as substrate, not as 
             const d = line.slice(6).trim(); if (!d || d==='[DONE]') continue;
             try {
               const p = JSON.parse(d);
-              if (p.type === 'message_start') {
-                messageId = p.message?.id || null;
-                if (p.message?.usage) usage = { ...p.message.usage };
-              } else if (p.type === 'content_block_start') {
+              if (p.type === 'content_block_start') {
                 const cb = p.content_block || {};
                 blockMap.set(p.index, {
                   type: cb.type,
@@ -4271,13 +3904,6 @@ The Paladin's moral spine now runs through all three forms as substrate, not as 
                   name: cb.name || null,
                   text: '',
                   jsonBuf: '',
-                  citations: [],
-                  // v0.6q: the VERBATIM content_block. web_search_tool_result
-                  // arrives complete in content_block_start (not via deltas) and
-                  // must be echoed back byte-for-byte, including each result's
-                  // encrypted_content. Rebuilding it from parsed fields would
-                  // drop that and the API would reject the continuation.
-                  raw: cb,
                   completed: false,
                 });
               } else if (p.type === 'content_block_delta' && p.delta?.type === 'text_delta') {
@@ -4288,17 +3914,11 @@ The Paladin's moral spine now runs through all three forms as substrate, not as 
               } else if (p.type === 'content_block_delta' && p.delta?.type === 'input_json_delta') {
                 const b = blockMap.get(p.index);
                 if (b) b.jsonBuf += (p.delta.partial_json || '');
-              } else if (p.type === 'content_block_delta' && p.delta?.type === 'citations_delta') {
-                // v0.6q: one citation per delta, appended to the text block it
-                // belongs to. Carries no visible text, so nothing is emitted.
-                const b = blockMap.get(p.index);
-                if (b && p.delta.citation) b.citations.push(p.delta.citation);
               } else if (p.type === 'content_block_stop') {
                 const b = blockMap.get(p.index);
                 if (b) b.completed = true;
-              } else if (p.type === 'message_delta') {
-                if (p.delta?.stop_reason) stopReason = p.delta.stop_reason;
-                if (p.usage) usage = { ...(usage || {}), ...p.usage };
+              } else if (p.type === 'message_delta' && p.delta?.stop_reason) {
+                stopReason = p.delta.stop_reason;
               }
             } catch (e) {}
           }
@@ -4307,11 +3927,6 @@ The Paladin's moral spine now runs through all three forms as substrate, not as 
         // Best-effort reader cleanup regardless of how we exit
         try { await reader.cancel(); } catch (cancelErr) {}
       }
-      // Every request that reached the model is metered here, on the way out,
-      // whatever the exit path. This is the one choke point all streamed calls
-      // pass through, so nothing can quietly go unmetered by taking a
-      // different route later. An aborted stream still generated the tokens it
-      // generated; the last usage seen is what gets recorded.
     } catch (e) {
       // Detect abort across browser variations:
       //   - DOMException with name 'AbortError' (Chrome/Edge/Firefox standard)
@@ -4330,41 +3945,18 @@ The Paladin's moral spine now runs through all three forms as substrate, not as 
         throw e;
       }
     }
-    meterRequest(body.model, usage, messageId, blockMap);
-
     // v0.6o: tool-aware return. Only callers that asked for tools get this
     // shape; everything else keeps the v0.6f contract untouched below.
     if (wantsTools) {
       const toolUses = [];
       const assistantBlocks = [];
-      const serverToolIds = new Set();
-      let searchCount = 0, searchErrors = 0;
       const indices = Array.from(blockMap.keys()).sort((a, b) => a - b);
       for (const i of indices) {
         const b = blockMap.get(i);
         if (b.type === 'text') {
           // The API rejects empty text blocks — and whitespace-only counts as
           // empty for this purpose, so trim before deciding.
-          if (b.text.trim()) {
-            const blk = { type: 'text', text: b.text };
-            // v0.6q: citations ride with the text they belong to. Echoing the
-            // text without them would strip the provenance out of a turn whose
-            // whole point is that provenance travels with the claim.
-            if (b.citations.length) blk.citations = b.citations;
-            assistantBlocks.push(blk);
-          }
-        } else if (b.type === 'server_tool_use') {
-          // v0.6q: Anthropic's own call. We never execute it — we only carry it.
-          if (!b.completed) continue;
-          let parsed;
-          try { parsed = b.jsonBuf.trim() ? JSON.parse(b.jsonBuf) : {}; }
-          catch (e) { continue; }
-          serverToolIds.add(b.id);
-          assistantBlocks.push({ type: 'server_tool_use', id: b.id, name: b.name, input: parsed });
-        } else if (b.type === 'web_search_tool_result') {
-          // Verbatim, or the encrypted_content inside it is lost.
-          assistantBlocks.push(b.raw);
-          if (Array.isArray(b.raw && b.raw.content)) searchCount++; else searchErrors++;
+          if (b.text.trim()) assistantBlocks.push({ type: 'text', text: b.text });
         } else if (b.type === 'tool_use') {
           // A block that never closed has partial JSON and MUST NOT run. This
           // is the stop-button case: the operator cut the stream mid-call.
@@ -4376,15 +3968,7 @@ The Paladin's moral spine now runs through all three forms as substrate, not as 
           assistantBlocks.push({ type: 'tool_use', id: b.id, name: b.name, input: parsed });
         }
       }
-      // A result whose server_tool_use was dropped (stream cut mid-call) would
-      // be an orphan, and an orphaned result block is rejected. Drop it too.
-      const cleanBlocks = assistantBlocks.filter(
-        (b) => b.type !== 'web_search_tool_result' || serverToolIds.has(b.tool_use_id)
-      );
-      return {
-        text: full, interrupted: wasAborted, stopReason, toolUses,
-        assistantBlocks: cleanBlocks, searchCount, searchErrors,
-      };
+      return { text: full, interrupted: wasAborted, stopReason, toolUses, assistantBlocks };
     }
 
     // v0.6f: return both the text and the abort status so callers can flag
@@ -4406,11 +3990,6 @@ The Paladin's moral spine now runs through all three forms as substrate, not as 
     let combined = '';
     let interrupted = false;
     let rounds = 0;
-    // v0.6q: counted for the operator's cost readout, not used to vary the
-    // tools array — see the note on WEB_SEARCH_TOOL for why it must not.
-    let searchesUsed = 0;
-    const academy = opts.academy !== false;
-    const searching = opts.search !== false;
 
     // combined is built from the SAME chunks the display receives, so what is
     // shown and what is stored cannot drift apart. The break between one
@@ -4432,19 +4011,15 @@ The Paladin's moral spine now runs through all three forms as substrate, not as 
       rounds++;
       const isFinalRound = rounds === MAX_TOOL_ROUNDS;
 
-      // Tools stay in EVERY request of the turn. Once the conversation carries
-      // tool_use/tool_result blocks, a request without `tools` is rejected — so
-      // the round cap is enforced with tool_choice instead, which still forbids
-      // another call and forces a text answer.
-      const roundTools = [];
-      if (academy) roundTools.push(...TOOLS);
-      if (searching) roundTools.push(WEB_SEARCH_TOOL);
-
       let res;
       try {
         res = await callBrainStream(convo, roundChunk, {
           ...opts,
-          tools: roundTools,
+          // Tools stay in EVERY request of the turn. Once the conversation
+          // carries tool_use/tool_result blocks, a request without `tools` is
+          // rejected — so the round cap is enforced with tool_choice instead,
+          // which still forbids another call and forces a text answer.
+          tools: TOOLS,
           toolChoice: isFinalRound ? { type: 'none' } : undefined,
         });
       } catch (e) {
@@ -4461,28 +4036,11 @@ The Paladin's moral spine now runs through all three forms as substrate, not as 
       const text = typeof res === 'string' ? res : (res.text || '');
       const wasInterrupted = typeof res === 'object' && res.interrupted;
 
+      if (text) pendingSeparator = true;
       if (wasInterrupted) { interrupted = true; break; }
       if (typeof res === 'string') break;
-
-      if (res.searchCount) {
-        searchesUsed += res.searchCount;
-        state.searchCount += res.searchCount;
-        renderSearchCount();
-      }
-
-      // v0.6q: a long-running server-side search pauses the turn mid-generation.
-      // The continuation resumes the SAME thought, so no separator is queued —
-      // a blank line here would cut a sentence in half on screen. The paused
-      // assistant message goes back unchanged and the turn picks up where it
-      // stopped. No tool_result is owed: nothing was asked of this client.
-      if (res.stopReason === 'pause_turn' && res.assistantBlocks.length) {
-        convo.push({ role: 'assistant', content: res.assistantBlocks });
-        continue;
-      }
-
       if (res.stopReason !== 'tool_use' || !res.toolUses.length) break;
 
-      if (text) pendingSeparator = true;
       convo.push({ role: 'assistant', content: res.assistantBlocks });
 
       const results = [];
@@ -4505,7 +4063,7 @@ The Paladin's moral spine now runs through all three forms as substrate, not as 
       convo.push({ role: 'user', content: results });
     }
 
-    return { text: combined, interrupted, failure, toolsRan, searchesUsed };
+    return { text: combined, interrupted, failure, toolsRan };
   }
 
   // ====== USER INPUT ======
@@ -4589,51 +4147,6 @@ The Paladin's moral spine now runs through all three forms as substrate, not as 
     // loud and the operator decides; the capability is built, the autonomy is
     // not. Matched BEFORE the Navi-rename below, which anchors to a single word
     // and would not catch this shape anyway.
-    // ============================================================
-    // v0.6r: the credit commands. OPERATOR-ONLY, parsed here before the brain
-    // ever sees the message — the same door the attribute rename uses. Orion
-    // has no tool for this and no say in it: what the operator spends on him
-    // is not a thing he should be able to read as a reason to be briefer, and
-    // a teacher who can see the meter is a teacher with a thumb on the scale.
-    //
-    //   credits            -> report the balance
-    //   credits 25         -> record a $25 top-up
-    //   credits reset      -> start the tank over from this moment
-    // ============================================================
-    const creditsMatch = text.match(/^credits(?:\s+(reset|[0-9]+(?:\.[0-9]{1,2})?))?\s*$/i);
-    if (creditsMatch) {
-      const arg = (creditsMatch[1] || '').toLowerCase();
-      if (!arg) {
-        const left = state.topupMicro > 0 ? Math.max(0, state.topupMicro - state.spentMicro) : null;
-        log('SYS', state.topupMicro > 0
-          ? `\u27e1 ${fmtUSD(left)} left of ${fmtUSD(state.topupMicro)} \u2014 ${fmtUSD(state.spentMicro)} spent across ${state.turnCount} request(s), ${state.searchCount} search(es). Prices as of ${PRICE_REV}.`
-          : `\u27e1 ${fmtUSD(state.spentMicro)} spent across ${state.turnCount} request(s). No top-up recorded, so there is no balance to count down from \u2014 type "credits <amount>" after you buy.`,
-          'system');
-        return;
-      }
-      if (!MoonCore.operatorId) { log('ERR', 'Moon Core offline \u2014 the ledger is shared between devices, so it cannot be written from here right now.', 'error'); return; }
-      if (arg === 'reset') {
-        // Recording the spend so far AS a topup zeroes the balance without
-        // deleting history: the ledger stays append-only and the odometer
-        // keeps running, which is what makes the record trustworthy.
-        MoonCore.recordUsage({ kind: 'topup', micro_usd: Math.max(1, state.spentMicro - state.topupMicro), price_rev: PRICE_REV })
-          .then(() => { state.topupMicro = state.spentMicro; renderMeter();
-            log('SYS', '\u27e1 Tank reset. The balance now counts down from this moment; nothing was erased.', 'system'); })
-          .catch(e => log('ERR', 'Could not write to the ledger: ' + (e.message || e), 'error'));
-        return;
-      }
-      const micro = Math.round(parseFloat(arg) * 1e6);
-      if (!(micro > 0)) { log('ERR', 'Usage: credits <amount in dollars>, e.g. credits 25', 'error'); return; }
-      MoonCore.recordUsage({ kind: 'topup', micro_usd: micro, price_rev: PRICE_REV })
-        .then(() => {
-          state.topupMicro += micro; renderMeter();
-          const left = Math.max(0, state.topupMicro - state.spentMicro);
-          log('SYS', `\u27e1 Recorded a ${fmtUSD(micro)} top-up. Balance now ${fmtUSD(left)}.`, 'system');
-        })
-        .catch(e => log('ERR', 'Could not write to the ledger: ' + (e.message || e), 'error'));
-      return;
-    }
-
     const attrRenameMatch = text.match(/^rename\s+attribute\s+([A-Za-z0-9_ -]{1,40}?)\s+to\s+([A-Za-z0-9_ -]{1,40})\s*$/i);
     if (attrRenameMatch) {
       const fromSlug = attrRenameMatch[1].trim().toLowerCase().replace(/[^a-z0-9_]+/g, '_').replace(/^_|_$/g, '');
@@ -4696,15 +4209,11 @@ The Paladin's moral spine now runs through all three forms as substrate, not as 
         el.log.scrollTop = el.log.scrollHeight;
       };
       // v0.6o: the Academy tools only exist when the Moon Core record is
-      // reachable — without it there is nothing to read or write.
-      // v0.6q: search does NOT depend on the record, so the tool path is no
-      // longer gated on Moon Core. With neither available the round tools come
-      // out empty and callBrainStream falls back to the plain legacy contract,
-      // which this loop already handles.
-      const result = await callBrainWithTools(state.history, onStreamChunk, {
-        signal: state.streamAbortController.signal,
-        academy: !!MoonCore.operatorId,
-      });
+      // reachable. Without it there is nothing to read or write, so the turn
+      // runs on the plain streaming path exactly as it did before.
+      const result = MoonCore.operatorId
+        ? await callBrainWithTools(state.history, onStreamChunk, { signal: state.streamAbortController.signal })
+        : await callBrainStream(state.history, onStreamChunk, { signal: state.streamAbortController.signal });
       cursor.remove();
 
       // v0.6f: result is either a string (normal completion) or
@@ -6909,41 +6418,10 @@ Respond now in the ${selectedInstrument.toUpperCase()} voicing. Length cap is ha
       }
       applyFormVisuals(state.form);
       document.querySelectorAll('.form-chip').forEach(c => c.classList.toggle('active', c.dataset.form === state.form));
-      // v0.6r: re-sync the meter from the ledger. The local mirror is only a
-      // within-session convenience; the ledger is what both devices share, and
-      // a balance assembled from one device's memory would be wrong by exactly
-      // whatever was spent on the other one.
-      try {
-        const u = await MoonCore.usageSummary(30);
-        state.spentMicro = u.totals.spent_micro || 0;
-        state.topupMicro = u.totals.topup_micro || 0;
-        state.remainingMicro = u.totals.remaining_micro;
-        state.searchCount = u.totals.web_searches || 0;
-        state.turnCount = u.totals.turns || 0;
-        renderMeter();
-        if (state.topupMicro > 0) {
-          const left = state.topupMicro - state.spentMicro;
-          const pct = (left / state.topupMicro) * 100;
-          if (pct <= 15) {
-            log('SYS', `Credits running low — ${fmtUSD(Math.max(0, left))} left of ${fmtUSD(state.topupMicro)}. Top up at console.anthropic.com, then type "credits <amount>".`, 'system');
-          }
-        }
-      } catch (e) {
-        // An older Worker has no /usage route. Say so once rather than
-        // showing a zero that looks like "nothing has been spent".
-        if (el.infoMeter) el.infoMeter.textContent = 'ledger unavailable — Moon Core needs the v0.6r deploy';
-      }
-
       // Pull profile facts (recent high-importance memories)
       try {
-        // v0.6r: the notebook is deliberately EXCLUDED here. It is reached by
-        // tool when it bears on the turn, not injected into every request —
-        // the same reason the frozen mission list was taken out in v0.6o.
         const mems = await MoonCore.listMemories();
-        state.profileFacts = mems
-          .filter(m => m.content && m.category !== NOTEBOOK_CATEGORY)
-          .slice(0, 10)
-          .map(m => `- [${m.category}] ${m.content}`).join('\n');
+        state.profileFacts = mems.slice(0, 10).filter(m=>m.content).map(m => `- [${m.category}] ${m.content}`).join('\n');
       } catch (e) { state.profileFacts = ''; }
 
       // Hydrate recent history (chronological order), SOURCE-TAGGED.
@@ -7030,32 +6508,7 @@ Respond now in the ${selectedInstrument.toUpperCase()} voicing. Length cap is ha
   applyFormVisuals(state.form);
   render();
 
-  // v0.6r FIX: `const MoonCore` is closure-scoped, so the Pet-mode script's
-  // `window.MoonCore && ...` guard was never true and the reflection orb never
-  // lit up on the phone. Publishing MoonCore itself would put
-  // recordAttributeTest on the console and break the agency lock, so only the
-  // two members that script actually needs are published, read-only.
-  window.MoonCoreStatus = {
-    get operatorId() { return MoonCore.operatorId; },
-    reflectionDue: () => MoonCore.reflectionDue(),
-  };
-
-  // A read-only surface for the test rigs. Nothing here can move a level,
-  // record a test, or write to the notebook — those stay reachable only
-  // through Orion's own tool calls, which is the whole point of the lock.
-  window.__orionTest = {
-    priceUsage: (model, u) => priceUsage(model, u),
-    renderMeter: () => renderMeter(),
-    systemStable: () => buildSystemPromptParts().stable,
-    tools: () => TOOLS.map(t => t.name),
-    fakeSession: (opId, key) => MoonCore.setSession('https://example.invalid', opId, 'tok', key),
-    encrypt: (plain) => Crypto.encrypt(MoonCore.key, plain),
-  };
-
-  // callBrainWithTools is exported for the SSE test harness, which drives the
-  // real turn loop against mocked streams rather than a copy of it. It is not
-  // an operator control and grants nothing onUserMessage does not already.
-  return { onUserMessage, henshin, callBrainOnce, callBrainStream, callBrainWithTools, sleep, wake, rename, runReflection, state, FORMS };
+  return { onUserMessage, henshin, callBrainOnce, callBrainStream, sleep, wake, rename, runReflection, state, FORMS };
 })();
 
 window.Orion = Orion;
@@ -7217,8 +6670,8 @@ window.Orion = Orion;
   function checkReflection(){
     if (!MQ.matches) return;
     try {
-      if (window.MoonCoreStatus && window.MoonCoreStatus.operatorId && window.MoonCoreStatus.reflectionDue) {
-        window.MoonCoreStatus.reflectionDue().then(function(d){
+      if (window.MoonCore && window.MoonCore.operatorId && window.MoonCore.reflectionDue) {
+        window.MoonCore.reflectionDue().then(function(d){
           var orb = document.getElementById('pet-reflection-orb');
           if (!orb) return;
           if (d && d.due) orb.classList.add('ready'); else orb.classList.remove('ready');

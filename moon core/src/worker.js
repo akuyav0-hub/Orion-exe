@@ -586,6 +586,105 @@ async function listLessons(url, auth, env) {
   return json({ lessons: r.results || [] });
 }
 
+// ============================================================
+// USAGE LEDGER (v0.6r)
+// Counts only — no content, nothing derived from content, nothing to encrypt.
+// It exists because Orion runs on two devices and a per-device spend counter
+// would report two numbers, neither of which is the truth.
+// ============================================================
+const USAGE_KINDS = new Set(['spend', 'topup']);
+
+async function recordUsage(request, auth, env) {
+  const b = await request.json();
+  const kind = String(b.kind || '');
+  if (!USAGE_KINDS.has(kind)) return err('kind must be spend or topup');
+
+  const n = (v) => {
+    const x = Math.trunc(Number(v) || 0);
+    return x > 0 ? x : 0;
+  };
+  const micro = n(b.micro_usd);
+  if (kind === 'topup' && micro <= 0) return err('a topup needs a positive micro_usd');
+
+  const clientId = b.client_event_id ? String(b.client_event_id).slice(0, 120) : null;
+
+  // Idempotency, same discipline as the Academy: a replayed write returns the
+  // row it already made rather than counting the same turn twice.
+  if (clientId) {
+    const existing = await env.DB.prepare(
+      'SELECT id FROM usage_events WHERE operator_id = ? AND client_event_id = ?'
+    ).bind(auth.operatorId, clientId).first();
+    if (existing) return json({ ok: true, id: existing.id, duplicate: true });
+  }
+
+  const r = await env.DB.prepare(
+    'INSERT INTO usage_events (operator_id, created_at, kind, model, input_tokens, output_tokens, cache_write_tokens, cache_read_tokens, web_searches, micro_usd, price_rev, client_event_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+  ).bind(
+    auth.operatorId, Date.now(), kind,
+    kind === 'spend' ? (b.model ? String(b.model).slice(0, 80) : null) : null,
+    n(b.input_tokens), n(b.output_tokens), n(b.cache_write_tokens), n(b.cache_read_tokens),
+    n(b.web_searches), micro,
+    b.price_rev ? String(b.price_rev).slice(0, 40) : null,
+    clientId
+  ).run();
+  return json({ ok: true, id: r.meta?.last_row_id });
+}
+
+async function usageSummary(url, auth, env) {
+  // Window for the burn-rate figure. The lifetime totals are never windowed —
+  // a balance that only counted recent spend would read high and be wrong in
+  // the one direction that costs the operator money.
+  const days = Math.min(Math.max(parseInt(url.searchParams.get('days') || '30'), 1), 365);
+  const since = Date.now() - days * 86400000;
+
+  const totals = await env.DB.prepare(
+    "SELECT " +
+    " COALESCE(SUM(CASE WHEN kind = 'spend' THEN micro_usd ELSE 0 END), 0) AS spent_micro," +
+    " COALESCE(SUM(CASE WHEN kind = 'topup' THEN micro_usd ELSE 0 END), 0) AS topup_micro," +
+    " COALESCE(SUM(input_tokens), 0)  AS input_tokens," +
+    " COALESCE(SUM(output_tokens), 0) AS output_tokens," +
+    " COALESCE(SUM(cache_write_tokens), 0) AS cache_write_tokens," +
+    " COALESCE(SUM(cache_read_tokens), 0)  AS cache_read_tokens," +
+    " COALESCE(SUM(web_searches), 0)  AS web_searches," +
+    " COALESCE(SUM(CASE WHEN kind = 'spend' THEN 1 ELSE 0 END), 0) AS turns," +
+    " MIN(created_at) AS first_at, MAX(created_at) AS last_at" +
+    ' FROM usage_events WHERE operator_id = ?'
+  ).bind(auth.operatorId).first();
+
+  const window = await env.DB.prepare(
+    "SELECT COALESCE(SUM(micro_usd), 0) AS spent_micro," +
+    ' COALESCE(SUM(web_searches), 0) AS web_searches,' +
+    ' COUNT(*) AS turns' +
+    " FROM usage_events WHERE operator_id = ? AND kind = 'spend' AND created_at >= ?"
+  ).bind(auth.operatorId, since).first();
+
+  const spent = Number(totals?.spent_micro || 0);
+  const topped = Number(totals?.topup_micro || 0);
+  return json({
+    totals: {
+      spent_micro: spent,
+      topup_micro: topped,
+      // Only meaningful once a topup has been recorded. Reported as null rather
+      // than a negative number so the client shows "unknown", never "-$4.12".
+      remaining_micro: topped > 0 ? topped - spent : null,
+      input_tokens: Number(totals?.input_tokens || 0),
+      output_tokens: Number(totals?.output_tokens || 0),
+      cache_write_tokens: Number(totals?.cache_write_tokens || 0),
+      cache_read_tokens: Number(totals?.cache_read_tokens || 0),
+      web_searches: Number(totals?.web_searches || 0),
+      turns: Number(totals?.turns || 0),
+      first_at: totals?.first_at ?? null,
+      last_at: totals?.last_at ?? null,
+    },
+    window: {
+      days,
+      spent_micro: Number(window?.spent_micro || 0),
+      web_searches: Number(window?.web_searches || 0),
+      turns: Number(window?.turns || 0),
+    },
+  });
+}
+
 async function getMission(auth, env) {
   const r = await env.DB.prepare('SELECT id, domain, updated_at, level, progress_enc, status FROM mission WHERE operator_id = ? ORDER BY domain').bind(auth.operatorId).all();
   return json({ mission: r.results || [] });
@@ -889,7 +988,7 @@ export default {
     const method = request.method;
     try {
       // Public
-      if (path === '/health') return json({ ok: true, service: 'moon-core', version: '0.6p-academy', supports_academy: true, supports_rename: true, time: Date.now() });
+      if (path === '/health') return json({ ok: true, service: 'moon-core', version: '0.6r-usage', supports_academy: true, supports_rename: true, supports_usage: true, time: Date.now() });
       if (path === '/awaken' && method === 'POST') return awaken(request, env);
       if (path === '/recognize' && method === 'POST') return recognize(request, env);
       if (path === '/recover' && method === 'POST') return recover(request, env);
@@ -921,6 +1020,10 @@ export default {
       // Lessons
       if (path === '/lessons' && method === 'POST') return addLesson(request, auth, env);
       if (path === '/lessons' && method === 'GET') return listLessons(url, auth, env);
+
+      // Usage ledger (v0.6r)
+      if (path === '/usage' && method === 'POST') return recordUsage(request, auth, env);
+      if (path === '/usage/summary' && method === 'GET') return usageSummary(url, auth, env);
 
       // Mission
       if (path === '/mission' && method === 'GET') return getMission(auth, env);
