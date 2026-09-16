@@ -3883,6 +3883,15 @@ The Paladin's moral spine now runs through all three forms as substrate, not as 
   const fmtUSD = (micro) =>
     micro == null ? '—' : '$' + (micro / 1e6).toFixed(micro >= 1e6 ? 2 : 4);
 
+  // v0.6s.1: max_tokens caps the WHOLE assistant turn, and a tool_use block's
+  // JSON is part of that turn. Standard form allows 800 tokens of voice; a
+  // note_method call carrying a long observation, or a search query written out
+  // after a long prompt, can spend most of that before a single word is said —
+  // and if the cap lands mid-JSON the block is incomplete, correctly dropped,
+  // and the round ends with nothing. That is not a voice-length decision, so it
+  // should not come out of the voice-length budget. Tools get their own room.
+  const TOOL_TOKEN_HEADROOM = 1024;
+
   const SEARCH_TOOL_TYPE = 'web_search_20250305';
   const MAX_SEARCHES_PER_REQUEST = 3;
   const WEB_SEARCH_TOOL = Object.freeze({
@@ -4236,20 +4245,30 @@ The Paladin's moral spine now runs through all three forms as substrate, not as 
   // them being created; this stops one that already exists — from an older
   // session, or a path not yet thought of — from wedging the conversation.
   function sendableMessages(messages) {
-    return (messages || []).filter(m => {
+    const kept = (messages || []).filter(m => {
       if (!m) return false;
       if (typeof m.content === 'string') return m.content.trim().length > 0;
       return Array.isArray(m.content) ? m.content.length > 0 : !!m.content;
     });
+    // v0.6s.1: the conversation must begin on a user turn. History is trimmed
+    // with slice(-HISTORY_WINDOW), which lands wherever it lands — one turn in
+    // every two, that is an assistant message, and the request is rejected.
+    // Hydration can leave the same shape. An assistant turn with no user turn
+    // in front of it is not context anyway; it is half of an exchange whose
+    // other half was cut off, so dropping it loses nothing that meant anything.
+    let i = 0;
+    while (i < kept.length && kept[i].role !== 'user') i++;
+    return i ? kept.slice(i) : kept;
   }
 
   async function callBrainStream(messages, onChunk, opts={}) {
     if (!state.apiKey) throw new Error('NO_KEY');
     messages = sendableMessages(messages);
     const wantsTools = Array.isArray(opts.tools) && opts.tools.length > 0;
+    const baseMaxTokens = opts.maxTokens || FORMS[state.form].maxTokens || 500;
     const body = {
       model: state.model,
-      max_tokens: opts.maxTokens || FORMS[state.form].maxTokens || 500,
+      max_tokens: wantsTools ? baseMaxTokens + TOOL_TOKEN_HEADROOM : baseMaxTokens,
       system: opts.systemOverride || buildSystemBlocks(),
       messages,
       stream: true
@@ -4474,6 +4493,9 @@ The Paladin's moral spine now runs through all three forms as substrate, not as 
     // again and spin. A retry that can repeat is a loop, not a recovery.
     let forcedText = false;
     let truncated = false;
+    // A shape record for the turn. Costs nothing, and turns "it came back
+    // empty" from a thing to theorise about into a thing to read.
+    const trace = [];
 
     while (rounds < MAX_TOOL_ROUNDS) {
       rounds++;
@@ -4522,6 +4544,14 @@ The Paladin's moral spine now runs through all three forms as substrate, not as 
       }
 
       if (res.stopReason === 'max_tokens') truncated = true;
+      trace.push({
+        r: rounds,
+        stop: res.stopReason || (typeof res === 'string' ? 'legacy' : 'none'),
+        chars: text.length,
+        blocks: (res.assistantBlocks || []).map((b) => b.type).join('+') || '-',
+        tools: res.toolUses ? res.toolUses.length : 0,
+        forced: forceText || undefined,
+      });
 
       // v0.6s.1 — THE EMPTY-TURN FIX.
       //
@@ -4592,7 +4622,7 @@ The Paladin's moral spine now runs through all three forms as substrate, not as 
       convo.push({ role: 'user', content: results });
     }
 
-    return { text: combined, interrupted, failure, toolsRan, searchesUsed, truncated };
+    return { text: combined, interrupted, failure, toolsRan, searchesUsed, truncated, trace };
   }
 
   // ====== USER INPUT ======
@@ -4853,6 +4883,15 @@ The Paladin's moral spine now runs through all three forms as substrate, not as 
           why = 'The reply hit its length cap before any words came out — the form\'s token budget is too tight for what that turn was doing.';
         }
         log('ERR', why + ' Nothing was saved. Send it again.', 'error');
+        // The shape of what actually happened, so a recurrence can be read
+        // rather than reconstructed. Terse on purpose — it is a diagnostic
+        // line, not an explanation, and it is only ever printed on a failure.
+        if (result && Array.isArray(result.trace) && result.trace.length) {
+          const shape = result.trace
+            .map((t) => `r${t.r}:${t.stop}/${t.blocks}/${t.chars}ch${t.tools ? '/' + t.tools + 'tool' : ''}${t.forced ? '/forced' : ''}`)
+            .join('  ');
+          log('SYS', 'shape — ' + shape, 'system');
+        }
         return;
       }
 
