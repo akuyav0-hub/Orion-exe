@@ -578,9 +578,12 @@ async function addLesson(request, auth, env) {
 async function listLessons(url, auth, env) {
   const dom = url.searchParams.get('domain');
   const limit = Math.min(parseInt(url.searchParams.get('limit') || '50'), 200);
-  let q = 'SELECT id, created_at, domain, title_enc, content_enc, source, followup_due FROM lessons WHERE operator_id = ?';
+  let q = 'SELECT id, created_at, domain, title_enc, content_enc, source, followup_due, followup_state, followup_closed_at FROM lessons WHERE operator_id = ?';
   const b = [auth.operatorId];
   if (dom) { q += ' AND domain = ?'; b.push(dom); }
+  // open=1 returns only debts still owed. Anything else returns everything,
+  // because a closed debt is still part of the record.
+  if (url.searchParams.get('open') === '1') q += ' AND followup_state IS NULL';
   q += ' ORDER BY created_at DESC LIMIT ?'; b.push(limit);
   const r = await env.DB.prepare(q).bind(...b).all();
   return json({ lessons: r.results || [] });
@@ -683,6 +686,29 @@ async function usageSummary(url, auth, env) {
       turns: Number(window?.turns || 0),
     },
   });
+}
+
+// v0.6s: retire a follow-up. State, never deletion — whether something was
+// taught or let go is precisely what the record is for.
+const FOLLOWUP_STATES = new Set(['closed', 'dropped']);
+async function patchLesson(id, request, auth, env) {
+  const b = await request.json();
+  const updates = [], values = [];
+  if (b.followup_state !== undefined) {
+    if (b.followup_state !== null && !FOLLOWUP_STATES.has(b.followup_state)) {
+      return err("followup_state must be 'closed', 'dropped', or null");
+    }
+    updates.push('followup_state = ?'); values.push(b.followup_state);
+    updates.push('followup_closed_at = ?'); values.push(b.followup_state ? Date.now() : null);
+  }
+  if (b.followup_due !== undefined) { updates.push('followup_due = ?'); values.push(b.followup_due); }
+  if (!updates.length) return err('nothing to update');
+  values.push(id, auth.operatorId);
+  const r = await env.DB.prepare(
+    `UPDATE lessons SET ${updates.join(', ')} WHERE id = ? AND operator_id = ?`
+  ).bind(...values).run();
+  if (!r.meta || r.meta.changes === 0) return err('no such lesson for this operator', 404);
+  return json({ ok: true, id });
 }
 
 async function getMission(auth, env) {
@@ -988,7 +1014,7 @@ export default {
     const method = request.method;
     try {
       // Public
-      if (path === '/health') return json({ ok: true, service: 'moon-core', version: '0.6r-usage', supports_academy: true, supports_rename: true, supports_usage: true, time: Date.now() });
+      if (path === '/health') return json({ ok: true, service: 'moon-core', version: '0.6s-followups', supports_academy: true, supports_rename: true, supports_usage: true, supports_followup_state: true, time: Date.now() });
       if (path === '/awaken' && method === 'POST') return awaken(request, env);
       if (path === '/recognize' && method === 'POST') return recognize(request, env);
       if (path === '/recover' && method === 'POST') return recover(request, env);
@@ -1020,6 +1046,8 @@ export default {
       // Lessons
       if (path === '/lessons' && method === 'POST') return addLesson(request, auth, env);
       if (path === '/lessons' && method === 'GET') return listLessons(url, auth, env);
+      const lm = path.match(/^\/lessons\/(\d+)$/);
+      if (lm && method === 'PATCH') return patchLesson(parseInt(lm[1]), request, auth, env);
 
       // Usage ledger (v0.6r)
       if (path === '/usage' && method === 'POST') return recordUsage(request, auth, env);
