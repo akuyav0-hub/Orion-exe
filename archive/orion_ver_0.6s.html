@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-title" content="Orion" />
 <link rel="apple-touch-icon" href="apple-touch-icon.png" />
 <link rel="manifest" href="manifest.webmanifest" />
-<title>ORION.EXE // The Great Dawn // v0.6s.1 — What Is Owed</title>
+<title>ORION.EXE // The Great Dawn // v0.6s — What Is Owed</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=JetBrains+Mono:wght@400;600&family=VT323&display=swap" rel="stylesheet">
@@ -4470,10 +4470,6 @@ The Paladin's moral spine now runs through all three forms as substrate, not as 
 
     let toolsRan = false;
     let failure = null;
-    // v0.6s.1: set once, so a round that is forced to speak can never force
-    // again and spin. A retry that can repeat is a loop, not a recovery.
-    let forcedText = false;
-    let truncated = false;
 
     while (rounds < MAX_TOOL_ROUNDS) {
       rounds++;
@@ -4486,17 +4482,13 @@ The Paladin's moral spine now runs through all three forms as substrate, not as 
       const roundTools = [];
       if (academy) roundTools.push(...TOOLS);
       if (searching) roundTools.push(WEB_SEARCH_TOOL);
-      // When the previous round did work but said nothing and left nothing to
-      // continue from, this round forbids tools so the model has to answer in
-      // words. Tools still travel — dropping them is what the API rejects.
-      const forceText = forcedText && !combined;
 
       let res;
       try {
         res = await callBrainStream(convo, roundChunk, {
           ...opts,
           tools: roundTools,
-          toolChoice: (isFinalRound || forceText) ? { type: 'none' } : undefined,
+          toolChoice: isFinalRound ? { type: 'none' } : undefined,
         });
       } catch (e) {
         // If anything already landed this turn — text on screen, or a tool that
@@ -4521,53 +4513,17 @@ The Paladin's moral spine now runs through all three forms as substrate, not as 
         renderSearchCount();
       }
 
-      if (res.stopReason === 'max_tokens') truncated = true;
-
-      // v0.6s.1 — THE EMPTY-TURN FIX.
-      //
-      // A round can do real work and still say nothing, and before this the
-      // loop treated "no client tool to run" as "the turn is over" and handed
-      // back an empty string. Four shapes reach that state, all of them only
-      // possible since search shipped, and all of them surfaced to the operator
-      // as "Empty response — nothing came back":
-      //
-      //   · a search-only round that ends on stop_reason 'tool_use' — the
-      //     server tool is not a CLIENT tool, so toolUses is empty;
-      //   · a search that ran and ended on 'end_turn' before any text;
-      //   · 'pause_turn' carrying no usable blocks at all;
-      //   · 'max_tokens' hit inside the tool call, so the partial block is
-      //     correctly dropped and nothing is left.
-      //
-      // The rule now is about what HAPPENED, not which stop_reason arrived: if
-      // the round produced server-side work, send that work back and let the
-      // model finish the thought it started.
-      const hasServerWork = Array.isArray(res.assistantBlocks) && res.assistantBlocks.some(
-        (b) => b.type === 'server_tool_use' || b.type === 'web_search_tool_result'
-      );
-      // `!text` matters: a round that searched AND answered is finished, and
-      // continuing it would buy a second request, and a second bill, for
-      // nothing. Only a round that did the work and never spoke gets resumed.
-      if ((res.stopReason === 'pause_turn' || (!res.toolUses.length && hasServerWork && !text))
-          && res.assistantBlocks.length) {
-        // A continuation resumes the same thought, so no separator is queued —
-        // a blank line here would cut a sentence in half on screen. And no
-        // tool_result is owed: nothing was asked of this client.
+      // v0.6q: a long-running server-side search pauses the turn mid-generation.
+      // The continuation resumes the SAME thought, so no separator is queued —
+      // a blank line here would cut a sentence in half on screen. The paused
+      // assistant message goes back unchanged and the turn picks up where it
+      // stopped. No tool_result is owed: nothing was asked of this client.
+      if (res.stopReason === 'pause_turn' && res.assistantBlocks.length) {
         convo.push({ role: 'assistant', content: res.assistantBlocks });
         continue;
       }
 
-      if (res.stopReason !== 'tool_use' || !res.toolUses.length) {
-        // Nothing said, and nothing to continue from. Rather than hand back an
-        // empty turn, spend one round forbidding tools so the model has to
-        // answer in words. Once only — see forcedText.
-        //
-        // This sits INSIDE the no-tool branch on purpose. Placed above it, it
-        // caught every ordinary tool-calling round as well — a round that calls
-        // a tool and says nothing is doing exactly what it should, and forcing
-        // it to speak instead would have silently disabled the Academy.
-        if (!combined && !forcedText && !isFinalRound) { forcedText = true; continue; }
-        break;
-      }
+      if (res.stopReason !== 'tool_use' || !res.toolUses.length) break;
 
       if (text) pendingSeparator = true;
       convo.push({ role: 'assistant', content: res.assistantBlocks });
@@ -4592,7 +4548,7 @@ The Paladin's moral spine now runs through all three forms as substrate, not as 
       convo.push({ role: 'user', content: results });
     }
 
-    return { text: combined, interrupted, failure, toolsRan, searchesUsed, truncated };
+    return { text: combined, interrupted, failure, toolsRan, searchesUsed };
   }
 
   // ====== USER INPUT ======
@@ -4842,15 +4798,11 @@ The Paladin's moral spine now runs through all three forms as substrate, not as 
         setStopButton(false);
         state.streamAbortController = null;
         state.history.pop(); // drop the user turn too; it was never answered
-        let why = 'Empty response — nothing came back, even after asking again for a plain answer.';
+        let why = 'Empty response — nothing came back.';
         if (result && typeof result === 'object' && result.failure) {
           why = 'Empty response: ' + (result.failure.message || String(result.failure));
         } else if (isInterrupted) {
           why = 'Stopped before anything was said.';
-        } else if (result && result.truncated) {
-          // v0.6s.1: distinguishable from silence. Hitting the cap before any
-          // words is a budget problem, not a broken turn, and says so.
-          why = 'The reply hit its length cap before any words came out — the form\'s token budget is too tight for what that turn was doing.';
         }
         log('ERR', why + ' Nothing was saved. Send it again.', 'error');
         return;
