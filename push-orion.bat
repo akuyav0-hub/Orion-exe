@@ -7,6 +7,7 @@ REM     push-orion                     (prompts for a message)
 REM     push-orion v0.6h.4 - device pass III
 REM
 REM  Runs verify.sh FIRST and refuses to push if it fails.
+REM  Then checks the lineage debt, and makes you answer for it if it is due.
 REM  Finds Git's bash.exe on its own - no PATH setup needed.
 REM ============================================================
 setlocal EnableDelayedExpansion
@@ -31,7 +32,7 @@ if not defined BASH if exist "C:\Program Files\Git\bin\bash.exe" set "BASH=C:\Pr
 
 REM ---------- 1. pre-deploy integrity gate ----------
 if not defined BASH (
-  echo [1/4] SKIPPED - could not find bash.exe, so verify did not run.
+  echo [1/5] SKIPPED - could not find bash.exe, so verify did not run.
   echo       Install Git for Windows, or run verify manually in Git Bash.
   echo.
   set /p "GOON=Push anyway without verifying? (y/N): "
@@ -41,7 +42,7 @@ if not defined BASH (
     exit /b 1
   )
 ) else (
-  echo [1/4] Running verify...
+  echo [1/5] Running verify...
   pushd current
   "%BASH%" verify.sh
   set "VERIFY_RC=!ERRORLEVEL!"
@@ -55,14 +56,37 @@ if not defined BASH (
   )
 )
 
-REM ---------- 2. remind about the service worker cache ----------
+REM ---------- 2. lineage debt gate ----------
+REM  The record stopped being kept once already and nothing made the drift
+REM  visible. A rule you have to remember at the moment you are shipping is
+REM  the same failure with an extra step, so the check runs here, every time,
+REM  whether anyone thought about it or not.
+if defined BASH (
+  echo.
+  echo [2/5] Checking lineage debt...
+  "%BASH%" lineage-check.sh
+  if errorlevel 1 (
+    echo.
+    set /p "LINEAGE_OK=Push anyway and carry the debt? (y/N): "
+    if /I not "!LINEAGE_OK!"=="y" (
+      echo Aborted. Write the entry first - that is the whole point.
+      pause
+      exit /b 1
+    )
+    echo Carrying the debt forward. It will ask again next time.
+  )
+) else (
+  echo [2/5] SKIPPED - no bash.exe, lineage debt not checked.
+)
+
+REM ---------- 3. remind about the service worker cache ----------
 echo.
 findstr /C:"const CACHE" current\sw.js
 echo   ^^ If you changed index.html, this cache name MUST be new,
 echo      or returning devices keep serving the old build.
 echo.
 
-REM ---------- 3. commit message ----------
+REM ---------- 4. commit message ----------
 set "MSG=%*"
 if "%MSG%"=="" set /p "MSG=Commit message: "
 if "%MSG%"=="" (
@@ -71,16 +95,16 @@ if "%MSG%"=="" (
   exit /b 1
 )
 
-REM ---------- 4. commit and push ----------
+REM ---------- 5. commit and push ----------
 echo.
-echo [2/4] Staging...
+echo [3/5] Staging...
 git add .
 
-echo [3/4] Committing...
+echo [4/5] Committing...
 git commit -m "%MSG%"
 if errorlevel 1 echo   (nothing new to commit - continuing)
 
-echo [4/4] Syncing and pushing...
+echo [5/5] Syncing and pushing...
 git pull origin main --no-edit
 if errorlevel 1 (
   echo.
