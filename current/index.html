@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-title" content="Orion" />
 <link rel="apple-touch-icon" href="apple-touch-icon.png" />
 <link rel="manifest" href="manifest.webmanifest" />
-<title>ORION.EXE // The Great Dawn // v0.6s.1 — What Is Owed</title>
+<title>ORION.EXE // The Great Dawn // v0.6s.2 — What Is Owed</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=JetBrains+Mono:wght@400;600&family=VT323&display=swap" rel="stylesheet">
@@ -4882,7 +4882,15 @@ The Paladin's moral spine now runs through all three forms as substrate, not as 
           // words is a budget problem, not a broken turn, and says so.
           why = 'The reply hit its length cap before any words came out — the form\'s token budget is too tight for what that turn was doing.';
         }
-        log('ERR', why + ' Nothing was saved. Send it again.', 'error');
+        // v0.6s.2: this line used to say "Nothing was saved," which was FALSE
+        // and misleading in the one message whose whole job is to report what
+        // happened. The user turn is written to the Moon Core record BEFORE the
+        // brain is called — only the reply and the in-memory history entry are
+        // discarded here. So an unanswered message stays in the record and is
+        // hydrated into Orion's context on a later session, where it reads as
+        // something the operator said and he never replied to. Saying otherwise
+        // let a real event look like confabulation on his side.
+        log('ERR', why + ' The reply was discarded; your message is already in the record, so he may read it on a later session even though he never answered it. Send it again.', 'error');
         // The shape of what actually happened, so a recurrence can be read
         // rather than reconstructed. Terse on purpose — it is a diagnostic
         // line, not an explanation, and it is only ever printed on a failure.
