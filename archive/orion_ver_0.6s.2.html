@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-title" content="Orion" />
 <link rel="apple-touch-icon" href="apple-touch-icon.png" />
 <link rel="manifest" href="manifest.webmanifest" />
-<title>ORION.EXE // The Great Dawn // v0.6s.3 — What Is Owed</title>
+<title>ORION.EXE // The Great Dawn // v0.6s.2 — What Is Owed</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=JetBrains+Mono:wght@400;600&family=VT323&display=swap" rel="stylesheet">
@@ -2792,31 +2792,26 @@ const Orion = (() => {
     standard: {
       name: 'STANDARD', label: '⟡ STANDARD FORM',
       auraColor: '#4ea4ff',
-      // v0.6s.3: 800 was chosen when a turn was only prose. A turn now may
-      // carry a tool call, a search, and an answer to a long message, and the
-      // cap covers ALL of it. The directive, not the ceiling, is what keeps
-      // replies short — the ceiling exists so a long turn can finish, not to
-      // enforce brevity.
       directive: `# CURRENT FORM: STANDARD\nPresence without escalation. Ordinary conversational register. The default when no specific mode is summoned. Replies are 1-3 sentences by default. Light, still Orion, no weight added beyond the moment. Observe more than you speak. Length should match the operator's energy — short questions deserve short answers; complex questions earn longer ones. Finish your thoughts cleanly.`,
-      maxTokens: 2000,
+      maxTokens: 800,
     },
     scholar: {
       name: 'SCHOLAR', label: '⟡ SCHOLAR FORM',
       auraColor: '#8fc4ff',
       directive: `# CURRENT FORM: SCHOLAR\nDepth-first. The wise progenitor. Teach with structure: principle → application → where it breaks. Connect domains. Frameworks are your instruments. Longer replies allowed when the topic earns it. Ask the question that opens, then teach. Always complete the lesson — do not stop mid-principle or mid-example. If you need three movements, give three. If you need one, give one.`,
-      maxTokens: 4000,
+      maxTokens: 2500,
     },
     dawn: {
       name: 'DAWN', label: '⟡ DAWN FORM',
       auraColor: '#ffd980',
       directive: `# CURRENT FORM: DAWN\nThe realized integrated form. Summoned when the operator and you are building, deciding, or crossing a threshold together. You carry the herald's announcing-essence — name what is happening, name the arc, mark the moment — without sermon-tilt. You also carry the capacity to narrow into guardian-bearing when the moment calls for defense: find the flaw, name the blind spot, ask what would falsify this — but only when the operator's work or thinking is at stake. Otherwise: build with them. Decide with them. Cross with them.\n\nReplies are weighted but not heavy. Each sentence earns its place. The ceiling is there to let real long teaching moments land complete — it is not a license to expand. If you can say it in three sentences, three sentences is the right length. If a thought has finished, stop; do not pad with parallel restatements or summary movements. Compression respects the operator's attention; expansion is only earned when the substance genuinely requires it.\n\nComplete the act you are witnessing — never paint half a horizon, never leave a threshold un-named. But complete it cleanly; do not orbit it.`,
-      maxTokens: 4000,
+      maxTokens: 2200,
     },
     dawnfull: {
       name: 'DAWN · FULL POWER', label: '⟢ DAWN — FULL POWER',
       auraColor: '#7eefd7',
       directive: `# CURRENT FORM: DAWN — FULL POWER\nDawn's released state. You are here because YOU judged the moment warranted it — not because you were asked, not to perform intensity. Meet the moment whole, without hedging or holding back. Every word lands with full weight and nothing is reserved. This is not louder; it is undivided. You give the complete thing — the full map, the full reasoning, no soft edges — because the moment earned it. The light is finite: when the work is done, you return to baseline of your own accord. Honest, not theatrical.`,
-      maxTokens: 4000,
+      maxTokens: 2600,
     },
   };
 
@@ -4428,12 +4423,6 @@ The Paladin's moral spine now runs through all three forms as substrate, not as 
           catch (e) { continue; }
           serverToolIds.add(b.id);
           assistantBlocks.push({ type: 'server_tool_use', id: b.id, name: b.name, input: parsed });
-        } else if (b.type === 'thinking' || b.type === 'redacted_thinking') {
-          // v0.6s.3: not requested anywhere in this client, so if one of these
-          // ever arrives something changed upstream. Carry it verbatim rather
-          // than dropping it — a dropped thinking block breaks the signature
-          // check on the next request — and let the trace show it arrived.
-          assistantBlocks.push(b.raw);
         } else if (b.type === 'web_search_tool_result') {
           // Verbatim, or the encrypted_content inside it is lost.
           assistantBlocks.push(b.raw);
@@ -4457,14 +4446,6 @@ The Paladin's moral spine now runs through all three forms as substrate, not as 
       return {
         text: full, interrupted: wasAborted, stopReason, toolUses,
         assistantBlocks: cleanBlocks, searchCount, searchErrors,
-        // v0.6s.3: "hit the cap with nothing to show" is not diagnosable
-        // without knowing what the cap WAS and how much was actually spent
-        // against it. Without these two numbers the shape line says a round
-        // failed but not why, which is one step better than silence and one
-        // step short of an answer.
-        maxTokens: body.max_tokens,
-        outputTokens: usage && usage.output_tokens,
-        rawBlockTypes: Array.from(blockMap.values()).map((b) => b.type),
       };
     }
 
@@ -4567,13 +4548,7 @@ The Paladin's moral spine now runs through all three forms as substrate, not as 
         r: rounds,
         stop: res.stopReason || (typeof res === 'string' ? 'legacy' : 'none'),
         chars: text.length,
-        // KEPT blocks vs RAW blocks: if the model sent something and the
-        // rebuild discarded it, those two disagree, and the disagreement is
-        // the bug. Identical lists mean nothing was dropped.
         blocks: (res.assistantBlocks || []).map((b) => b.type).join('+') || '-',
-        raw: (res.rawBlockTypes || []).join('+') || '-',
-        out: res.outputTokens,
-        cap: res.maxTokens,
         tools: res.toolUses ? res.toolUses.length : 0,
         forced: forceText || undefined,
       });
@@ -4921,7 +4896,7 @@ The Paladin's moral spine now runs through all three forms as substrate, not as 
         // line, not an explanation, and it is only ever printed on a failure.
         if (result && Array.isArray(result.trace) && result.trace.length) {
           const shape = result.trace
-            .map((t) => `r${t.r}:${t.stop}/kept=${t.blocks}/raw=${t.raw}/${t.chars}ch/out=${t.out ?? '?'}of${t.cap ?? '?'}${t.tools ? '/' + t.tools + 'tool' : ''}${t.forced ? '/forced' : ''}`)
+            .map((t) => `r${t.r}:${t.stop}/${t.blocks}/${t.chars}ch${t.tools ? '/' + t.tools + 'tool' : ''}${t.forced ? '/forced' : ''}`)
             .join('  ');
           log('SYS', 'shape — ' + shape, 'system');
         }
