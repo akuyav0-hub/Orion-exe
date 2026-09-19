@@ -606,6 +606,12 @@
 
   /* v0.6f: interrupted response styling — visually grey out partial response */
   .interrupted-response { opacity: 0.55; }
+  /* v0.6s.3: a reply cut off by the LENGTH CAP is a different fact from one the
+     operator stopped, and conflating them would teach the wrong lesson about
+     which one happened. Amber, not grey. */
+  .truncated-marker {
+    color: var(--gold); font-size: 0.85em; font-style: italic; margin-left: 4px;
+  }
   .interrupted-marker {
     color: rgba(255,140,90,0.7);
     font-size: 0.85em;
@@ -4857,7 +4863,7 @@ The Paladin's moral spine now runs through all three forms as substrate, not as 
       // Phase 5: parse for [CHRONICLE_SUGGESTION] marker, strip from display,
       // render inline suggestion button below the message if present.
       const parsed = SuggestionParser.parse(final);
-      const cleaned = parsed.cleanedText;
+      let cleaned = parsed.cleanedText;   // v0.6s.3: reassigned when the reply was cut off at the cap
 
       // Replace the streamed text with the cleaned version (marker stripped).
       // If the marker was present (or truncated), the textEl's text node
@@ -4870,6 +4876,28 @@ The Paladin's moral spine now runs through all three forms as substrate, not as 
         } else {
           textEl.textContent = cleaned;
         }
+      }
+
+      // v0.6s.3: THE TURN THAT DID NOT KNOW IT WAS CUT OFF.
+      //
+      // When the API stops a reply at max_tokens, the turn simply ends. Orion
+      // has no signal that it happened — not on screen, not in the history he
+      // carries into the next turn, not in the hydrated record later. So asked
+      // "is that everything," he answers from a message that looks whole to
+      // him, and says yes about a sentence that stopped mid-thought. That
+      // looked like overconfidence and was actually missing information.
+      //
+      // The marker is appended to the TEXT, not just the DOM, because the text
+      // is what reaches him. It is an annotation in the same in-band style the
+      // `[log ...]` prefixes already use, and it is a fact about the turn
+      // rather than words put in his mouth.
+      const wasTruncated = !!(result && typeof result === 'object' && result.truncated);
+      if (wasTruncated) {
+        cleaned = cleaned + '\n\n[cut off here — the reply hit its length cap]';
+        const tm = document.createElement('span');
+        tm.className = 'truncated-marker';
+        tm.textContent = ' [cut off — length cap]';
+        textEl.appendChild(tm);
       }
 
       // v0.6f: if operator stopped the stream, append "[interrupted]" indicator
