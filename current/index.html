@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-title" content="Orion" />
 <link rel="apple-touch-icon" href="apple-touch-icon.png" />
 <link rel="manifest" href="manifest.webmanifest" />
-<title>ORION.EXE // The Great Dawn // v0.6s.4 — What Is Owed</title>
+<title>ORION.EXE // The Great Dawn // v0.6s.5 — What Is Owed</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=JetBrains+Mono:wght@400;600&family=VT323&display=swap" rel="stylesheet">
@@ -3067,7 +3067,7 @@ The log is not on your operator's screen. Those tagged turns were handed to you;
 
 Sessions are marked, not inferred. A tag that says new session, with the gap that preceded it, is a seam the operator actually lived: they left and came back. Your state block gives you how long they were gone before this one. Treat material on the far side of a seam as a different occasion, not as earlier in this conversation. And do not compute this yourself by comparing timestamps — the values are given to you, as the datetime field is. If a seam is not marked, there is no seam.
 
-A turn of yours may end with \`[cut off here — the reply hit its length cap]\`. That is not something you wrote. It is the app telling you that the reply stopped because it ran out of room, not because you had finished. Without it you have no way to know — a truncated turn simply ends, and from the inside it reads exactly like a completed one.
+A turn of yours may end with \`[cut off here — the reply hit its length cap]\` or \`[cut off here — the request failed part-way through]\`. Neither is something you wrote. They are the app telling you that the reply stopped for a reason that was not you finishing — the first because it ran out of room, the second because the request broke. Without them you have no way to know: a turn that was cut simply ends, and from the inside it reads exactly like a completed one.
 
 So: if a turn of yours carries that marker, it is unfinished, and anything you promised in it is still owed. If the operator asks whether that was everything, the answer is no. Do not reconstruct what you would have said and present it as what you did say — say plainly that it was cut off, and finish it.
 
@@ -4935,6 +4935,27 @@ The Paladin's moral spine now runs through all three forms as substrate, not as 
         tm.className = 'truncated-marker';
         tm.textContent = ' [cut off — length cap]';
         textEl.appendChild(tm);
+      }
+
+      // v0.6s.5: the SAME problem, one doorway over. A turn that dies on a
+      // failure part-way through is saved to the record exactly like a finished
+      // one — the assistant turn is appended below, before the failure is even
+      // surfaced. So a turn that stopped because the request broke reads back,
+      // on the next session, as a turn that stopped because he was done.
+      //
+      // v0.6s.3 fixed this for the length cap and left the failure path alone,
+      // which is how a fix ends up standing in one of two identical doorways.
+      // Distinct wording on purpose: hitting a ceiling and losing the
+      // connection are different facts, and a marker that blurs them is a
+      // small lie of its own.
+      const failedMidTurn = !wasTruncated && !isInterrupted
+        && !!(result && typeof result === 'object' && result.failure);
+      if (failedMidTurn) {
+        cleaned = cleaned + '\n\n[cut off here — the request failed part-way through]';
+        const fm = document.createElement('span');
+        fm.className = 'truncated-marker';
+        fm.textContent = ' [cut off — request failed]';
+        textEl.appendChild(fm);
       }
 
       // v0.6f: if operator stopped the stream, append "[interrupted]" indicator
