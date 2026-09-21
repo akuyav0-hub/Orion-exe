@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-title" content="Orion" />
 <link rel="apple-touch-icon" href="apple-touch-icon.png" />
 <link rel="manifest" href="manifest.webmanifest" />
-<title>ORION.EXE // The Great Dawn // v0.6t — What Is Owed</title>
+<title>ORION.EXE // The Great Dawn // v0.6t.1 — What Is Owed</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=JetBrains+Mono:wght@400;600&family=VT323&display=swap" rel="stylesheet">
@@ -5104,7 +5104,12 @@ The Paladin's moral spine now runs through all three forms as substrate, not as 
       setStopButton(false);
       state.streamAbortController = null;
       let m = err.message || String(err);
-      if (/401|authentication|invalid.*api.*key/i.test(m)) m='API key rejected.';
+      // v0.6t.1: the old pattern required "invalid" BEFORE "api ... key" and so
+      // missed Anthropic's actual wording, "API key is invalid" — the operator
+      // got the raw message instead of an actionable one. Match either order,
+      // and say what to do about it rather than only naming it.
+      if (/401|authentication|invalid.*api.*key|api.*key.*invalid|x-api-key/i.test(m))
+        m = 'API key rejected by Anthropic. The request got there, so this is the key itself — re-paste it, or make a new one in the console.';
       else if (/429|rate.*limit/i.test(m)) m='Rate limited. Wait a few seconds.';
       else if (/overloaded|529/i.test(m)) m='Servers busy. Try again.';
       else if (/credit|balance|billing/i.test(m)) m='API out of credit.';
@@ -6506,9 +6511,23 @@ Respond now in the ${selectedInstrument.toUpperCase()} voicing. Length cap is ha
     });
   }
   el.saveKey.addEventListener('click', () => {
-    const k = el.keyInput.value.trim();
+    // v0.6t.1: strip EVERY whitespace character, not just the ends. A key
+    // copied out of a wrapped terminal line or a chat message can carry a
+    // newline in the middle, which trim() leaves in place and which the
+    // prefix check happily accepts.
+    const k = el.keyInput.value.replace(/\s+/g, '');
     const m = el.modelSelect.value;
     if (!k || !k.startsWith('sk-ant-')) { log('ERR', 'Invalid key format.', 'error'); return; }
+    // A truncated paste passes the prefix check and then fails at the brain
+    // call as "API key is invalid", which sends you looking at the network
+    // instead of at the clipboard. Length is the cheap thing that catches it
+    // AT ENTRY. The bound is deliberately loose — it exists to catch a paste
+    // that lost half of itself, not to enforce a format Anthropic may change.
+    if (k.length < 40) {
+      log('ERR', 'That key is only ' + k.length + ' characters — a full key is much longer. The paste was probably cut short; copy it again.', 'error');
+      return;
+    }
+    log('SYS', 'Key accepted: ' + k.length + ' characters, ' + k.slice(0, 11) + '… If the brain still rejects it, the key itself is wrong or revoked, not the paste.', 'dim');
     state.apiKey = k;
     state.model = m;
     localStorage.setItem('orion-api-key', k);

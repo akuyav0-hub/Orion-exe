@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Base capability for Orion's window. Nothing beyond the core defaults is granted yet — tray, hotkey and secret storage each add their own permissions when they land, so what the shell can do stays legible one line at a time.",
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}

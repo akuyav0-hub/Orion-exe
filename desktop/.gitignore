@@ -1,0 +1,9 @@
+# Rust build output. Gigabytes, entirely reproducible, never committed.
+src-tauri/target/
+
+# Tauri's generated schemas and bindings.
+src-tauri/gen/
+
+# Generated from current/icon-512.png by `cargo tauri icon`; regenerate
+# rather than commit, so the source of truth stays the one PNG.
+src-tauri/icons/

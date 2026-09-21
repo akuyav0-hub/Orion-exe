@@ -1,0 +1,31 @@
+# ============================================================
+#  Orion — native shell.
+#
+#  This crate is the SHELL, not the app. Orion is current/index.html and
+#  stays that way; everything here exists to give that file a window, an
+#  icon, a tray and eventually a place to keep a secret. If this whole
+#  directory were deleted, Orion would still run in a browser exactly as
+#  he does today. That is the point, and it is what makes the choice of
+#  framework a cheap decision rather than a bet on the project.
+# ============================================================
+[package]
+name         = "orion"
+version      = "0.1.0"
+description  = "Orion — Navi. Native shell."
+edition      = "2021"
+rust-version = "1.77.2"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+
+# A single-user app that is rebuilt rather than shipped does not need a
+# fast build, but it does want a small binary sitting on the machine.
+[profile.release]
+opt-level     = "s"
+lto           = true
+codegen-units = 1
+panic         = "abort"
+strip         = true
