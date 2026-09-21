@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-title" content="Orion" />
 <link rel="apple-touch-icon" href="apple-touch-icon.png" />
 <link rel="manifest" href="manifest.webmanifest" />
-<title>ORION.EXE // The Great Dawn // v0.6s.5 — What Is Owed</title>
+<title>ORION.EXE // The Great Dawn // v0.6t — What Is Owed</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=JetBrains+Mono:wght@400;600&family=VT323&display=swap" rel="stylesheet">
@@ -1487,6 +1487,32 @@
   }
   .log-copy:hover { color: var(--white-soft); border-color: rgba(78,164,255,0.5); }
   .log-copy.ok { color: #7eefd7; border-color: rgba(126,239,215,0.6); }
+  /* ---- v0.6t: selection ---- */
+  .log-selbar {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    margin-bottom: 10px; padding: 8px 10px; border-radius: 8px;
+    background: rgba(78,164,255,0.07); border: 1px solid rgba(78,164,255,0.28);
+  }
+  .log-selbar[hidden] { display: none; }
+  .log-selcount { flex: 1 1 auto; min-width: 140px; font-size: 12px; color: var(--text-dim); }
+  .log-selbar .btn { min-height: 34px; padding: 0 12px; font-size: 12px; }
+  /* The whole row is the hit target in select mode — a 14px checkbox is not a
+     thumb target, and this panel is used on the phone more than the desktop. */
+  .log-row.selectable { cursor: pointer; }
+  .log-row.selectable:hover { border-color: rgba(78,164,255,0.35); }
+  .log-row.selected {
+    border-color: rgba(78,164,255,0.65);
+    background: rgba(78,164,255,0.09);
+  }
+  .log-tick {
+    flex: 0 0 auto; width: 20px; height: 20px; border-radius: 5px;
+    border: 1px solid rgba(255,255,255,0.28); background: rgba(2,3,10,0.6);
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 12px; line-height: 1; color: transparent; margin-right: 8px;
+  }
+  .log-row.selected .log-tick {
+    color: #04070f; background: var(--blue, #4ea4ff); border-color: var(--blue, #4ea4ff);
+  }
   #log-search {
     flex: 0 0 auto; width: 100%; box-sizing: border-box; margin-bottom: 10px;
     background: rgba(2,3,10,0.8); border: 1px solid rgba(255,255,255,0.12);
@@ -2192,6 +2218,20 @@
         <input type="date" id="log-date" aria-label="Jump to a date" />
         <button class="btn" id="log-jump-btn">JUMP</button>
         <button class="btn" id="log-recent-btn">RECENT</button>
+        <!-- v0.6t: COPY DAY fetches the day from Moon Core rather than reading
+             what happens to be on screen. The list pages 30 at a time, so a
+             screen-scrape would hand over a partial day that looks whole —
+             the truncation bug's shape, in a copy button. -->
+        <button class="btn" id="log-copy-day">COPY DAY</button>
+        <button class="btn" id="log-select-btn">SELECT</button>
+      </div>
+      <!-- v0.6t: selection. COPY DAY was the wrong primitive to build first —
+           a day is one preset over the real thing, which is choosing turns. -->
+      <div class="log-selbar" id="log-selbar" hidden>
+        <span class="log-selcount" id="log-selcount">Tap turns to select. Shift-tap for a range.</span>
+        <button class="btn" id="log-sel-all">ALL SHOWN</button>
+        <button class="btn" id="log-sel-none">CLEAR</button>
+        <button class="btn moon" id="log-sel-copy">COPY</button>
       </div>
       <input type="text" id="log-search" placeholder="filter what has been fetched…"
              autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
@@ -6577,13 +6617,52 @@ Respond now in the ${selectedInstrument.toUpperCase()} voicing. Length cap is ha
       { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' }) };
   }
 
+  // v0.6t: one formatter for every way a turn leaves the log — the per-row
+  // button, a selection, and COPY DAY. Three copies of this drifting apart is
+  // how a pasted excerpt ends up in a shape Orion does not recognise as a log.
+  function logLineFor(row){
+    const st = logStamp(row);
+    const who = row.role === 'assistant' ? 'ORION' : 'YOU';
+    return '[log' + (st.label ? ' ' + st.label : '') + '] ' + who + ': ' + (row.content || '');
+  }
+  function logBlockFor(rows){
+    // Oldest first. The API hands back newest-first, which reads backwards the
+    // moment it is more than one turn.
+    return rows.slice().sort((a, b) => logStamp(a).ms - logStamp(b).ms)
+               .map(logLineFor).join('\n\n');
+  }
+
+  const logSel = { on: false, ids: new Set(), anchor: null };
+
+  function logRowKey(row, i){ return String(row.id != null ? row.id : 'i' + i); }
+
+  function updateSelBar(){
+    const bar = document.getElementById('log-selbar');
+    const count = document.getElementById('log-selcount');
+    const btn = document.getElementById('log-select-btn');
+    const copy = document.getElementById('log-sel-copy');
+    if (!bar) return;
+    bar.hidden = !logSel.on;
+    if (btn) btn.textContent = logSel.on ? 'DONE' : 'SELECT';
+    const n = logSel.ids.size;
+    if (count) count.textContent = n
+      ? n + ' turn' + (n === 1 ? '' : 's') + ' selected'
+      : 'Tap turns to select. Shift-tap for a range.';
+    if (copy) { copy.disabled = !n; copy.textContent = n ? 'COPY (' + n + ')' : 'COPY'; }
+  }
+
   function renderLog(){
     const list = document.getElementById('log-list');
     const more = document.getElementById('log-more');
     const q = (document.getElementById('log-search').value || '').trim().toLowerCase();
     if (!list) return;
+    updateSelBar();
 
     const shown = q ? logView.rows.filter(r => (r.content||'').toLowerCase().includes(q)) : logView.rows;
+    // v0.6t: the selection handlers need the same list the rows were built
+    // from — recomputing the filter in three places is how ALL SHOWN ends up
+    // selecting something other than what is on screen.
+    logView.shown = shown;
 
     if (more) {
       more.textContent = logView.exhausted ? 'BEGINNING OF RECORD' : (logView.loading ? 'LOADING\u2026' : 'LOAD OLDER');
@@ -6604,17 +6683,48 @@ Respond now in the ${selectedInstrument.toUpperCase()} voicing. Length cap is ha
       note.textContent = shown.length + ' of ' + logView.rows.length + ' fetched turns match. This searches only what has been loaded, not the whole record.';
       list.appendChild(note);
     }
-    shown.forEach(r => {
+    shown.forEach((r, idx) => {
       const row = document.createElement('div');
-      row.className = 'chronicle-entry log-row';
+      const key = logRowKey(r, idx);
+      row.className = 'chronicle-entry log-row'
+        + (logSel.on ? ' selectable' : '')
+        + (logSel.on && logSel.ids.has(key) ? ' selected' : '');
       const meta = document.createElement('div');
       meta.className = 'log-meta';
       const who = r.role === 'assistant' ? 'ORION' : 'YOU';
       const st = logStamp(r);
 
       const whoLabel = document.createElement('span');
-      whoLabel.textContent = who + (st.label ? '  \u00b7  ' + st.label : '');
+      if (logSel.on) {
+        const tick = document.createElement('span');
+        tick.className = 'log-tick';
+        tick.textContent = '\u2713';
+        whoLabel.appendChild(tick);
+      }
+      whoLabel.appendChild(document.createTextNode(who + (st.label ? '  \u00b7  ' + st.label : '')));
       meta.appendChild(whoLabel);
+
+      if (logSel.on) {
+        row.setAttribute('role', 'button');
+        row.setAttribute('aria-pressed', logSel.ids.has(key) ? 'true' : 'false');
+        row.addEventListener('click', (ev) => {
+          // Shift-click (or shift-tap on a keyboard-equipped tablet) takes the
+          // run between the last touched row and this one \u2014 the case the old
+          // per-row button could never serve without a dozen taps.
+          if (ev.shiftKey && logSel.anchor != null) {
+            const a = shown.findIndex((x, i) => logRowKey(x, i) === logSel.anchor);
+            if (a >= 0) {
+              const [lo, hi] = a < idx ? [a, idx] : [idx, a];
+              for (let i = lo; i <= hi; i++) logSel.ids.add(logRowKey(shown[i], i));
+              renderLog();
+              return;
+            }
+          }
+          if (logSel.ids.has(key)) logSel.ids.delete(key); else logSel.ids.add(key);
+          logSel.anchor = key;
+          renderLog();
+        });
+      }
 
       // v0.6p: per-message copy. COPY CHAT takes the whole visible thread, which
       // is the wrong instrument when you want one exchange out of a month of
@@ -6629,8 +6739,7 @@ Respond now in the ${selectedInstrument.toUpperCase()} voicing. Length cap is ha
       copyBtn.setAttribute('aria-label', 'Copy this message to the clipboard');
       copyBtn.addEventListener('click', async (ev) => {
         ev.stopPropagation();
-        const text = '[log' + (st.label ? ' ' + st.label : '') + '] ' + who + ': ' + (r.content || '');
-        const done = await copyTextToClipboard(text);
+        const done = await copyTextToClipboard(logLineFor(r));
         copyBtn.textContent = done ? '\u2713' : '\u2717';
         copyBtn.classList.toggle('ok', done);
         setTimeout(() => { copyBtn.textContent = '\u29c9'; copyBtn.classList.remove('ok'); }, 1400);
@@ -6700,6 +6809,70 @@ Respond now in the ${selectedInstrument.toUpperCase()} voicing. Length cap is ha
     if (more) more.addEventListener('click', loadOlderLog);
     const search = document.getElementById('log-search');
     if (search) search.addEventListener('input', renderLog);
+
+    // ---- v0.6t: selection ----
+    const selBtn = document.getElementById('log-select-btn');
+    if (selBtn) selBtn.addEventListener('click', function(){
+      logSel.on = !logSel.on;
+      // Leaving select mode drops the selection rather than keeping it warm and
+      // invisible — a hidden selection that copies later is a surprise.
+      if (!logSel.on) { logSel.ids.clear(); logSel.anchor = null; }
+      renderLog();
+    });
+    const selAll = document.getElementById('log-sel-all');
+    if (selAll) selAll.addEventListener('click', function(){
+      // "All SHOWN" and not "all", on purpose: it can only take what has been
+      // fetched and is passing the filter, and the label says which.
+      (logView.shown || []).forEach(function(r, i){ logSel.ids.add(logRowKey(r, i)); });
+      renderLog();
+    });
+    const selNone = document.getElementById('log-sel-none');
+    if (selNone) selNone.addEventListener('click', function(){
+      logSel.ids.clear(); logSel.anchor = null; renderLog();
+    });
+    const selCopy = document.getElementById('log-sel-copy');
+    if (selCopy) selCopy.addEventListener('click', async function(){
+      const picked = (logView.shown || []).filter(function(r, i){ return logSel.ids.has(logRowKey(r, i)); });
+      if (!picked.length) return;
+      const ok = await copyTextToClipboard(logBlockFor(picked));
+      const count = document.getElementById('log-selcount');
+      if (count) count.textContent = ok
+        ? picked.length + ' turn' + (picked.length === 1 ? '' : 's') + ' copied.'
+        : 'Copy failed — the clipboard refused.';
+    });
+
+    // ---- v0.6t: COPY DAY ----
+    const dayBtn = document.getElementById('log-copy-day');
+    if (dayBtn) dayBtn.addEventListener('click', async function(){
+      const di = document.getElementById('log-date');
+      const base = (di && di.value)
+        ? (function(){ const p = di.value.split('-').map(Number); return new Date(p[0], p[1] - 1, p[2]); })()
+        : new Date();
+      const start = new Date(base.getFullYear(), base.getMonth(), base.getDate(), 0, 0, 0, 0).getTime();
+      const end   = new Date(base.getFullYear(), base.getMonth(), base.getDate(), 23, 59, 59, 999).getTime();
+      const label = new Date(start).toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
+      const was = dayBtn.textContent;
+      dayBtn.disabled = true; dayBtn.textContent = 'READING…';
+      try {
+        // Fetched from Moon Core, NOT read off the screen. The list pages 30 at
+        // a time, so whatever is rendered is usually a fraction of a day.
+        const res = await MoonCore.listConversationsWindow(start, end, { limit: 500, order: 'asc' });
+        const rows = (res.rows || []).filter(function(c){ return c.content; });
+        if (!rows.length) {
+          log('LOG', 'Nothing in the record for ' + label + '.', 'dim');
+        } else {
+          const ok = await copyTextToClipboard(logBlockFor(rows));
+          log('LOG', ok
+            ? rows.length + ' turns from ' + label + ' copied.'
+            : 'Read ' + rows.length + ' turns from ' + label + ' but the clipboard refused them.',
+            ok ? 'dim' : 'error');
+        }
+      } catch (err) {
+        log('ERR', 'Could not read ' + label + ': ' + (err.message || err), 'error');
+      } finally {
+        dayBtn.disabled = false; dayBtn.textContent = was;
+      }
+    });
 
     // ---- date jump (Tier 3): query an arbitrary day, not just backward from now ----
     const jumpBtn = document.getElementById('log-jump-btn');
