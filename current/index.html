@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-title" content="Orion" />
 <link rel="apple-touch-icon" href="apple-touch-icon.png" />
 <link rel="manifest" href="manifest.webmanifest" />
-<title>ORION.EXE // The Great Dawn // v0.6s.3 — What Is Owed</title>
+<title>ORION.EXE // The Great Dawn // v0.6s.4 — What Is Owed</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=JetBrains+Mono:wght@400;600&family=VT323&display=swap" rel="stylesheet">
@@ -3067,6 +3067,10 @@ The log is not on your operator's screen. Those tagged turns were handed to you;
 
 Sessions are marked, not inferred. A tag that says new session, with the gap that preceded it, is a seam the operator actually lived: they left and came back. Your state block gives you how long they were gone before this one. Treat material on the far side of a seam as a different occasion, not as earlier in this conversation. And do not compute this yourself by comparing timestamps — the values are given to you, as the datetime field is. If a seam is not marked, there is no seam.
 
+A turn of yours may end with \`[cut off here — the reply hit its length cap]\`. That is not something you wrote. It is the app telling you that the reply stopped because it ran out of room, not because you had finished. Without it you have no way to know — a truncated turn simply ends, and from the inside it reads exactly like a completed one.
+
+So: if a turn of yours carries that marker, it is unfinished, and anything you promised in it is still owed. If the operator asks whether that was everything, the answer is no. Do not reconstruct what you would have said and present it as what you did say — say plainly that it was cut off, and finish it.
+
 Be wary of any summary of past sessions that arrives already condensed. A compression is somebody's guess about what mattered, and if you carry it as fact you inherit their editorial choices as though they were events. Prefer the actual excerpt. If you only have a summary, say that is what you have.
 
 # Reaching outside
@@ -4345,6 +4349,11 @@ The Paladin's moral spine now runs through all three forms as substrate, not as 
                   text: '',
                   jsonBuf: '',
                   citations: [],
+                  // v0.6s.4: a thinking block's TEXT arrives in thinking_delta
+                  // and its SIGNATURE in signature_delta — neither is present in
+                  // content_block_start. See the assembly branch below.
+                  thinkBuf: '',
+                  signature: null,
                   // v0.6q: the VERBATIM content_block. web_search_tool_result
                   // arrives complete in content_block_start (not via deltas) and
                   // must be echoed back byte-for-byte, including each result's
@@ -4366,6 +4375,15 @@ The Paladin's moral spine now runs through all three forms as substrate, not as 
                 // belongs to. Carries no visible text, so nothing is emitted.
                 const b = blockMap.get(p.index);
                 if (b && p.delta.citation) b.citations.push(p.delta.citation);
+              } else if (p.type === 'content_block_delta' && p.delta?.type === 'thinking_delta') {
+                // v0.6s.4: accumulated, never shown. Orion's visible voice is
+                // the text blocks; this is only carried so the turn can be
+                // echoed back intact.
+                const b = blockMap.get(p.index);
+                if (b) b.thinkBuf += (p.delta.thinking || '');
+              } else if (p.type === 'content_block_delta' && p.delta?.type === 'signature_delta') {
+                const b = blockMap.get(p.index);
+                if (b && p.delta.signature) b.signature = p.delta.signature;
               } else if (p.type === 'content_block_stop') {
                 const b = blockMap.get(p.index);
                 if (b) b.completed = true;
@@ -4434,12 +4452,31 @@ The Paladin's moral spine now runs through all three forms as substrate, not as 
           catch (e) { continue; }
           serverToolIds.add(b.id);
           assistantBlocks.push({ type: 'server_tool_use', id: b.id, name: b.name, input: parsed });
-        } else if (b.type === 'thinking' || b.type === 'redacted_thinking') {
-          // v0.6s.3: not requested anywhere in this client, so if one of these
-          // ever arrives something changed upstream. Carry it verbatim rather
-          // than dropping it — a dropped thinking block breaks the signature
-          // check on the next request — and let the trace show it arrived.
-          assistantBlocks.push(b.raw);
+        } else if (b.type === 'thinking') {
+          // v0.6s.4 — FIXING v0.6s.3. The old code pushed b.raw here, reasoning
+          // by analogy with web_search_tool_result: carry it verbatim rather
+          // than drop it. The analogy was wrong, and the difference is the
+          // whole bug. A web_search_tool_result arrives COMPLETE in
+          // content_block_start. A thinking block does NOT — start carries
+          // `thinking: ""`, the prose arrives in thinking_delta and the
+          // signature in signature_delta. Echoing the start block therefore
+          // sent back an empty thinking block, and the API rejects those:
+          //   messages.N.content.0.thinking: each thinking block must contain thinking
+          // which killed the turn AND every retry, since the bad block was
+          // already in the in-memory conversation.
+          //
+          // "Verbatim" is only safe for block types that arrive whole. For a
+          // streamed type, verbatim means the empty shell it started as.
+          const think = { type: 'thinking', thinking: b.thinkBuf };
+          if (b.signature) think.signature = b.signature;
+          // Last-resort guard: an empty one is guaranteed to be rejected, so a
+          // dropped block is strictly better than a dead turn.
+          if (b.thinkBuf) assistantBlocks.push(think);
+        } else if (b.type === 'redacted_thinking') {
+          // Unlike `thinking`, this one DOES arrive complete in the start block
+          // — its payload is an opaque `data` string, not deltas — so verbatim
+          // is correct here. Guarded anyway rather than assumed.
+          if (b.raw && b.raw.data) assistantBlocks.push(b.raw);
         } else if (b.type === 'web_search_tool_result') {
           // Verbatim, or the encrypted_content inside it is lost.
           assistantBlocks.push(b.raw);
