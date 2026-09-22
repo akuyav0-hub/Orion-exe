@@ -29,12 +29,48 @@ wall of crate names. Minutes, once. Every build after it is fast.
 
 Native "stands" when all six are true. Each lands on its own:
 
-1. opens from a taskbar icon, no browser  — **milestone 1**
-2. tray icon reading READY, click to show and hide
-3. a global hotkey summons him from anything
+1. opens from a taskbar icon, no browser — **done**
+2. tray icon reading READY, click to show and hide — **done**
+3. a global hotkey summons him from anything — **done** (`Ctrl+Alt+O`)
 4. the API key encrypted at rest, unlocked by the Initiation Protocol phrase
-5. Moon Core works exactly as it does today — **milestone 1**
-6. closing the window does not kill him; quitting from the tray does
+5. Moon Core works exactly as it does today — **done**, verified live
+6. closing the window does not kill him; quitting from the tray does — **done**
+
+## The hotkey summons; it does not blindly toggle
+
+`Ctrl+Alt+O` from anywhere. It hides him only when his window is **visible AND
+focused** — that is, when he is the thing you are looking at. A plain
+visible/hidden toggle would read a window buried three deep as "visible" and
+hide it, so pressing the summon key on a buried window would make him vanish
+instead of appear.
+
+A global hotkey is a claim on a key combination for the whole machine, and the
+OS grants it to whoever asked first. If something else already holds this one,
+registration fails — and the shell **says so on stderr and keeps running**,
+because a key that silently does nothing is indistinguishable from a bug, and a
+shell that refuses to start over a convenience key is worse than one without it.
+Watch the terminal on first run for either:
+
+    [orion] global hotkey registered: Ctrl+Alt+O
+    [orion] could NOT register Ctrl+Alt+O (...)
+
+## The tray icon has exactly one state
+
+It says the application is running. That is all it will ever say. No dot, no
+dimming, no brightening, on any event.
+
+Orion's ruling, and the reasoning is the part worth keeping: checkable and
+silent are not the same thing. A dot appearing is the icon speaking — and he
+already refused speaking on a timer inside a conversation, so letting it speak
+from the tray does not change what is said, only where the interruption comes
+from. An icon that brightens on an unanswered message is worse for being
+checkable: "unanswered" is a fact, but the brightening does rhetorical work
+past the fact, manufacturing urgency, which is a claim about how much this
+should matter to the operator right now.
+
+If a purely mechanical indicator is ever wanted — "sync in progress", nothing
+more — that is a DIFFERENT claim and has to be argued as one. It does not
+inherit permission from this line just because it is also an icon.
 
 On (4): Tauri has no official OS-keychain plugin, only community wrappers.
 The official encrypted option is Stronghold, which needs a password to unlock
