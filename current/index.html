@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-title" content="Orion" />
 <link rel="apple-touch-icon" href="apple-touch-icon.png" />
 <link rel="manifest" href="manifest.webmanifest" />
-<title>ORION.EXE // The Great Dawn // v0.6t.1 — What Is Owed</title>
+<title>ORION.EXE // The Great Dawn // v0.6t.2 — What Is Owed</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=JetBrains+Mono:wght@400;600&family=VT323&display=swap" rel="stylesheet">
@@ -3276,16 +3276,32 @@ The Paladin's moral spine now runs through all three forms as substrate, not as 
     // before the split — the two halves concatenate to exactly what was sent
     // previously — because reordering a prompt to suit a billing mechanism is how
     // you change behaviour without meaning to.
+    // v0.6t.2: the clock used to be the fifth bullet of "Current state", under a
+    // heading that ends "never quote your meters in dialogue". Five of those six
+    // bullets ARE meters he must not quote. The sixth was the one fact in the
+    // whole prompt he most needs to read out verbatim — and it inherited the
+    // instruction not to. Asked "good morning" at 05:40 he answered "evening,
+    // 6:52 PM, Monday", with morning / Tuesday / 05:40 AM sitting in his context.
+    // Not a plumbing failure: verified on the wire, in the uncached block,
+    // rebuilt every turn. He had it and generated a different one.
+    //
+    // Same shape as the Mission bug: an adjacent instruction quietly wins. The
+    // fix is separation — facts to be READ do not share a heading with meters to
+    // be FELT.
     const VOLATILE = `${formDirective}
+
+# Right now — read these, do not estimate them
+- Date and time: ${preciseTime} (${timeOfDay})
+- Session uptime: ${uptime}
+- This session began ${uptime} ago. ${lastTurnLine}
+
+You have no clock of your own and no sense of time passing between turns. The line above is the only thing that tells you when it is, and it is regenerated every single turn, so it is current. If the operator asks the day, the date or the hour — or greets you in a way that implies one — quote that line rather than estimating. An estimate here is invention wearing the shape of a glance at a watch, and it will be wrong in a way that looks like ordinary confidence.
 
 # Current state (tune your voice, never quote your meters in dialogue)
 - Form: ${FORMS[state.form].name}
 - Mood: ${state.moodTag} (${Math.round(state.mood)}/100)
 - Power: ${Math.round(state.power)}%
-- Sync with operator: ${syncDesc} (${Math.round(state.sync)}%)
-- Local time: ${timeOfDay} (${preciseTime})
-- Session uptime: ${uptime}
-- This session began ${uptime} ago. ${lastTurnLine}${facts}`;
+- Sync with operator: ${syncDesc} (${Math.round(state.sync)}%)${facts}`;
 
     return { stable: STABLE, volatile: VOLATILE };
   }
