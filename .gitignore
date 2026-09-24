@@ -49,3 +49,4 @@ New Text Document.txt.txt
 *.tmp
 *.bak
 *.old
+private-tools/
